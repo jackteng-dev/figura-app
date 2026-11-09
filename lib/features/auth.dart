@@ -62,7 +62,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
       ),
       const SizedBox(height: 12),
-      Text(registering ? '建立 ELPSY Shop 會員' : '登入後管理收藏與訂單'),
+      Text(registering ? '建立 Figura 會員' : '登入後管理收藏與訂單'),
       const SizedBox(height: 32),
       Form(
         key: form,

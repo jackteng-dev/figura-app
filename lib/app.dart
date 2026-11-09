@@ -136,7 +136,7 @@ class ShopApp extends ConsumerWidget {
       );
     }
     return MaterialApp.router(
-      title: 'ELPSY Shop',
+      title: 'Figura',
       debugShowCheckedModeBanner: false,
       locale: const Locale('zh', 'TW'),
       supportedLocales: const [Locale('zh', 'TW'), Locale('en')],
@@ -168,7 +168,7 @@ class ShopShell extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'ELPSY Shop',
+          'Figura',
           style: TextStyle(fontWeight: FontWeight.w800, letterSpacing: 1),
         ),
         leading: context.canPop()

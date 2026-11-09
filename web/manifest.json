@@ -1,6 +1,6 @@
 {
-    "name": "ELPSY Shop 測試入口",
-    "short_name": "ELPSY Shop 測試入口",
+    "name": "Figura 測試入口",
+    "short_name": "Figura 測試入口",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
