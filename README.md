@@ -1,49 +1,86 @@
-# ELPSY Shop 顧客 App
+# Figura App
 
-獨立 Flutter Android／iOS 顧客端。商品、現貨／預購交易與進度共用 [shop_bak_ap](https://github.com/jackteng-dev/shop_bak_ap)；[Shop_back](https://github.com/jackteng-dev/Shop_back) 保留 Vue 網站與員工後台。
+*A Flutter customer app for browsing and purchasing in-stock and preorder figures and collectibles.*
 
-第一版：註冊／登入／裝置登出、商品與預購批次、購物車、收件地址、現貨／整筆預購結帳、模擬付款、本人現貨／預購訂單、到貨分配／出貨／送達與退款／退貨進度。付款與配送目前為 mock，沒有實際收款、物流或推播。
+Figura（原 ELPSY Shop）是公仔與收藏品電商，本倉庫為獨立 Flutter 顧客 App，介面目前仍顯示 ELPSY Shop。
+提供收藏者從商品瀏覽、現貨與整筆預購結帳，到訂單及到貨進度查詢的行動購物流程。
+App 與網站共用 [Figura API](https://github.com/jackteng-dev/figura-api)，顧客端只串接公開商品與行動會員 API。
 
-Flutter **3.47.6**／Dart **3.13.5**，依賴版本與 pubspec.lock 固定。Riverpod 管理 API／session／寫入狀態、GoRouter 導航、Dio 請求、Flutter Secure Storage 使用原生 Keychain／Keystore。API 與平台注意事項見 [交接](docs/HANDOFF.md)、[API與安全](docs/API.md)、[裝置安裝與驗收](docs/DEVICE_ACCEPTANCE.md)、[正式環境待驗](docs/CLOUD_LOCAL_FOLLOWUP.md)。
+## 展示
 
-## 開發
+目前沒有公開線上 Demo。已完成 Android 模擬器驗證；歷史私人測試 APK 的交付紀錄見[交接文件](docs/HANDOFF.md)，需具備存取權限，且 CI 重建的交付檔尚未完成裝置測試。
 
-先啟動後端的全新隔離 demo；設定與資料不放入 App。Android Studio 安裝 SDK，iOS 需要 macOS／Xcode。App 無預設正式伺服器，不把 localhost 或示範域名当成部署。
+## 主要功能
+
+- 會員註冊、登入、個人資料編輯與本裝置登出。
+- 現貨商品、款式與主圖瀏覽；預購批次、名額、截止時間及預估到貨區間查詢。
+- 購物車數量調整、商品移除，以及收件地址新增、編輯與刪除。
+- 現貨與整筆預購結帳、後端報價核對、模擬付款成功／失敗。
+- 本人訂單分頁查詢與取消；退款、退貨、預購分配及配送進度查詢。
+- 連線中斷後的未確認操作提示、重啟恢復與核對流程。
+
+## 技術架構
+
+| 層 | 技術 |
+| --- | --- |
+| 行動介面 | Flutter 3.47.6、Dart 3.13.5、Material 3、繁體中文 |
+| 狀態與導航 | Riverpod、GoRouter |
+| API 與交易狀態 | Dio、ShopApi、Writes／PendingWrite、UUID |
+| 原生安全儲存 | Flutter Secure Storage；Android Keystore／iOS Keychain |
+| 驗證工具 | flutter_test、原生測試入口、瀏覽器測試 harness |
+
+```mermaid
+flowchart TD
+    App[Flutter 顧客介面] --> Router[GoRouter]
+    App --> State[Riverpod]
+    State --> Writes[Writes / PendingWrite]
+    State --> API[ShopApi]
+    Writes --> API
+    API --> HTTP[Dio HTTP 請求]
+    API --> Store[NativeStore / Flutter Secure Storage]
+```
+
+Dio 存取公開 `catalog` 與 Bearer 驗證的 `mobile/customer` 路由；正式 API 必須使用 HTTPS。App 不另建產品資料庫，後端業務規則由共用 API 負責。
+
+## 工程重點
+
+- **未知結果與冪等操作**：送出前安全保存顧客、原 UUID 與完整 body；結果未知時凍結新寫入，僅允許明確重試原 UUID 操作，程序重啟後仍能核對。見[寫入狀態實作](lib/core/api.dart)與[API 與安全](docs/API.md)。
+- **版本衝突與一致性**：購物車、地址及訂單操作帶入版本；版本寫入回覆遺失後先讀取核對，不盲目重送。收到成功 ACK 即清除待確認狀態，後續讀取失敗只重讀。見[行為測試](test/api_test.dart)。
+- **登入並行控制**：同時發生的 401 共用一次 refresh，原請求最多重試一次；以登入世代與憑證寫入佇列處理登出競爭，避免延遲回應恢復登入。見[Session 實作](lib/core/api.dart)與[回歸測試](test/api_test.dart)。
+- **憑證與顧客隔離**：access token 只留記憶體，refresh、裝置識別與未完成操作存原生安全儲存；不同顧客不能接管他人的待確認操作。見[儲存實作](lib/core/storage.dart)與[安全規則](docs/API.md)。
+
+## 品質與交付
+
+- 依[交接文件](docs/HANDOFF.md)紀錄：format、analyze 通過，unit／widget 測試 13 項通過，另 1 項 live socket 測試預設略過；此為文件中的既有結果。
+- 同份文件記錄 Android 模擬器原生核心驗收 4 階段、手動畫面與生命週期檢查 8 項通過；完整 UI 自動化仍未通過。
+- 現有 GitHub Actions 為手動觸發的 [Android test APK](.github/workflows/android-test-apk.yml)：固定 Flutter 版本、format → analyze → test → debug APK，產生校驗碼與 artifact，並嘗試附加至既有私人草稿 Release。
+- 本倉庫沒有名為 `verify` 的工作流程，也沒有 PR → CI → 私有 GHCR 映像 → 自架伺服器拉取式 CD 的設定；目前交付形式為 Android 測試 APK。
+
+## 本機啟動
+
+準備上述 Flutter SDK、Android SDK 與模擬器，先依後端文件啟動自己的全新隔離測試環境。
+將 shell 環境變數 `API_BASE_URL` 設為該後端的完整 API 位址，路徑以 `/ELPSY/api/` 結尾，再執行：
 
 ```sh
 flutter pub get
-flutter analyze
-flutter test
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:29092/ELPSY/api/
+flutter run --dart-define=API_BASE_URL="$API_BASE_URL"
 ```
 
-Android emulator 的 10.0.2.2 指向開發主機；手機可使用可達的 HTTPS API，或依裝置文件以USB adb reverse連到本機demo。只有 debug 且已知 loopback／emulator host 可以 HTTP；release 只接受 HTTPS。開發時用私有 `work/` 設定，不把帳號密碼放命令列或 Dart 原始碼。
+API 無預設正式位址；release 僅接受 HTTPS，debug 的 HTTP 例外限本機回環與模擬器主機。裝置連線、驗收重跑與簽章步驟見[詳細設定](docs/DEVICE_ACCEPTANCE.md)。
 
-```sh
-flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:29092/ELPSY/api/
-flutter build apk --release --dart-define=API_BASE_URL=https://YOUR_HOST/ELPSY/api/
-```
+## 已知限制
 
-本倉庫支援忽略的 `android/key.properties` 載入商家自己的keystore；未提供時release產物仍為 **unsigned**，不能直接安裝／上架，欄位不全會失敗。Android INTERNET 已配置、備份關閉；iOS Keychain entitlement已配置，未放寬ATS。iOS 程式已建立，Linux 無法驗證 iOS build。實際驗證結果見交接，不將 APK compile 等同真機測試。
+- 僅完成 Android 模擬器驗證；尚未驗證實體裝置、iOS build／Keychain 執行，也未完成商店上架或正式 API 連線。
+- 付款、物流、退款與通知仍為 mock，沒有實際收款、寄送或推播；尚未作為正式營運服務。
+- Android 正式簽章仍需商家憑證；未提供簽章設定時，release 建置產物為 unsigned，不能直接安裝或上架。
+- 瀏覽器 harness 僅供測試，使用記憶體儲存，不是正式 Web 登入入口。
+- 預購目前支援整筆結帳；訂金尾款、延期與部分退款尚未實作。
 
-## 可重跑驗證
+## 文件
 
-`flutter test` 包含 10 個網路／session／未確認操作測試與 3 個 widget 測試；實際 loopback 測試預設 skip。後端 `scripts/smoke_mobile.py --fixture <本倉庫>/work/live-fixture.json` 只在自己的 disposable demo 產生合成資料與私有設定，再執行：
-
-```sh
-flutter test test/live_socket_test.dart --dart-define-from-file=work/live-fixture.json
-```
-
-另有 **debug-only** Flutter browser harness（記憶體 token、不持久化）驗證手機尺寸 UI，並不替代 Android/iOS 裝置測試，也不是 Vue 替代品：
-
-```sh
-flutter build web --debug --no-wasm-dry-run -t test_support/browser_main.dart
-python3 scripts/serve_harness.py
-node scripts/smoke_browser.cjs
-```
-
-測試 server 只綁127.0.0.1:25178，代理同機29092後端；需要本機 Playwright／Chromium，透過 PLAYWRIGHT_MODULE_PATH／PLAYWRIGHT_CHROMIUM_PATH 指向安裝路徑。只有忽略的 work 存 fixture／screenshots／原始日誌；safe evidence 不包含帳密或收件資料。
-
-原生Android可透過 `test_support/native_main.dart` 與 `scripts/verify_android.py` 驗證 NativeStore、程序重啟、已提交但回覆遺失、版本操作核對、owner隔離、App更新與真正帳戶UI。詳裝置文件；probe僅供專用debug測試裝置，不以probe作交付入口。
-
-繁中字型 Noto Sans TC 使用 SIL Open Font License，來源、SHA、完整授權見 [字型資訊](assets/fonts/README.md)。
+- [目前交接與驗證結果](docs/HANDOFF.md)
+- [API、安全與操作恢復規則](docs/API.md)
+- [Android 安裝、驗收與 iOS 建置步驟](docs/DEVICE_ACCEPTANCE.md)
+- [實體裝置與正式環境待驗項目](docs/CLOUD_LOCAL_FOLLOWUP.md)
+- [繁中字型來源與授權](assets/fonts/README.md)
+- [原 README 開發紀錄](docs/DEV_LOG.md)
