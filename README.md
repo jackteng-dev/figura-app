@@ -2,13 +2,13 @@
 
 *A Flutter customer app for browsing and purchasing in-stock and preorder figures and collectibles.*
 
-Figura（原 ELPSY Shop）是公仔與收藏品電商，本倉庫為獨立 Flutter 顧客 App，介面目前仍顯示 ELPSY Shop。
+Figura（原 ELPSY Shop）是公仔與收藏品電商，本倉庫為獨立 Flutter 顧客 App。
 提供收藏者從商品瀏覽、現貨與整筆預購結帳，到訂單及到貨進度查詢的行動購物流程。
 App 與網站共用 [Figura API](https://github.com/jackteng-dev/figura-api)，顧客端只串接公開商品與行動會員 API。
 
 ## 展示
 
-目前沒有公開線上 Demo。已完成 Android 模擬器驗證；歷史私人測試 APK 的交付紀錄見[交接文件](docs/HANDOFF.md)，需具備存取權限，且 CI 重建的交付檔尚未完成裝置測試。
+同一套後端的網站版可在 [線上沙盒 figura.jackteng.dev](https://figura.jackteng.dev) 體驗；連線沙盒的 App 測試版尚在準備。已完成 Android 模擬器驗證；歷史私人測試 APK 的交付紀錄見[交接文件](docs/HANDOFF.md)，需具備存取權限，且 CI 重建的交付檔尚未完成裝置測試。
 
 ## 主要功能
 
