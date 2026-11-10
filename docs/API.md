@@ -1,6 +1,6 @@
 # API與安全
 
-Base URI 必須 HTTPS 且以 /ELPSY/api/ 結尾；debug 限 loopback/10.0.2.2 HTTP。登入 `/mobile/customer/auth` 與受保護 `/mobile/customer/*` 使用 JSON/Bearer，公開 `/catalog` 不帶token；完全不讀寫網站Cookie／CSRF、員工API或私有S3。圖片只用已知public route重建URL，不接受任意外部圖URL或夾帶token。
+Base URI 必須 HTTPS 且以 /figura/api/ 結尾；debug 限 loopback/10.0.2.2 HTTP。登入 `/mobile/customer/auth` 與受保護 `/mobile/customer/*` 使用 JSON/Bearer，公開 `/catalog` 不帶token；完全不讀寫網站Cookie／CSRF、員工API或私有S3。圖片只用已知public route重建URL，不接受任意外部圖URL或夾帶token。
 
 access 只記憶體，refresh與deviceUUID使用原生secure storage；密碼不保存。refresh只有同時一筆，伺服器先拒絕401才重試一次原請求；網路或5xx不自動重送。登出本機清除並呼叫遠端撤銷，回應未知顯示撤銷未確認；登出與refresh競爭不讓遲到pair恢復登入。暫時503保留refresh讓人重試，明確401失效才清除。網站Token/staffToken不被新後端接受。
 

@@ -1,4 +1,4 @@
-package com.elpsy.elpsy_shop
+package dev.jackteng.figura
 
 import io.flutter.embedding.android.FlutterActivity
 

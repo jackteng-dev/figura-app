@@ -16,14 +16,14 @@ Flutter **3.47.6**／Dart **3.13.5**，依賴版本與 pubspec.lock 固定。Riv
 flutter pub get
 flutter analyze
 flutter test
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:29092/ELPSY/api/
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:29092/figura/api/
 ```
 
 Android emulator 的 10.0.2.2 指向開發主機；手機可使用可達的 HTTPS API，或依裝置文件以USB adb reverse連到本機demo。只有 debug 且已知 loopback／emulator host 可以 HTTP；release 只接受 HTTPS。開發時用私有 `work/` 設定，不把帳號密碼放命令列或 Dart 原始碼。
 
 ```sh
-flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:29092/ELPSY/api/
-flutter build apk --release --dart-define=API_BASE_URL=https://YOUR_HOST/ELPSY/api/
+flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:29092/figura/api/
+flutter build apk --release --dart-define=API_BASE_URL=https://YOUR_HOST/figura/api/
 ```
 
 本倉庫支援忽略的 `android/key.properties` 載入商家自己的keystore；未提供時release產物仍為 **unsigned**，不能直接安裝／上架，欄位不全會失敗。Android INTERNET 已配置、備份關閉；iOS Keychain entitlement已配置，未放寬ATS。iOS 程式已建立，Linux 無法驗證 iOS build。實際驗證結果見交接，不將 APK compile 等同真機測試。

@@ -7,9 +7,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:elpsy_shop/core/api.dart';
-import 'package:elpsy_shop/core/models.dart';
-import 'package:elpsy_shop/core/storage.dart';
+import 'package:figura/core/api.dart';
+import 'package:figura/core/models.dart';
+import 'package:figura/core/storage.dart';
 
 const base = String.fromEnvironment('API_BASE_URL');
 final checks = <String>[];

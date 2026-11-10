@@ -30,8 +30,8 @@ Uri validateBase(String value, {required bool development}) {
       uri.hasFragment ||
       (uri.scheme != 'https' &&
           !(development && devHost && uri.scheme == 'http')) ||
-      !uri.path.endsWith('/ELPSY/api/')) {
-    throw ShopError('API 位址需為 HTTPS，並以 /ELPSY/api/ 結尾');
+      !uri.path.endsWith('/figura/api/')) {
+    throw ShopError('API 位址需為 HTTPS，並以 /figura/api/ 結尾');
   }
   return uri;
 }
