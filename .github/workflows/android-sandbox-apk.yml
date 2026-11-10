@@ -1,0 +1,103 @@
+name: Android sandbox APK
+# Builds the customer app against the public sandbox (https://figura.jackteng.dev, synthetic data,
+# daily reset) and publishes it as the "sandbox-latest" GitHub release.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'android/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/android-sandbox-apk.yml'
+permissions:
+  contents: write
+concurrency:
+  group: android-sandbox-apk
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RELEASE_TAG: sandbox-latest
+      API_BASE_URL: https://figura.jackteng.dev/ELPSY/api/
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install pinned Flutter
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch 3.47.6 https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          test "$(git -C "$RUNNER_TEMP/flutter" rev-parse HEAD)" = 5fc346839b5d0eef006ed8404392afb4dfae428d
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+          echo "JAVA_HOME=$JAVA_HOME_21_X64" >> "$GITHUB_ENV"
+          echo "$JAVA_HOME_21_X64/bin" >> "$GITHUB_PATH"
+      - name: Verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter --version
+          flutter pub get --enforce-lockfile
+          dart format --output=none --set-exit-if-changed lib test test_support
+          flutter analyze
+          flutter test
+      - name: Demo signing key
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_DEMO_KEYSTORE_B64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_DEMO_KEYSTORE_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64" && test -n "$KEYSTORE_PASSWORD"
+          test ! -e android/key.properties
+          umask 077
+          printf '%s' "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/figura-demo.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/figura-demo.jks"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=figura-demo"
+            echo "keyPassword=$KEYSTORE_PASSWORD"
+          } > android/key.properties
+      - name: Build sandbox APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          flutter build apk --release --dart-define=API_BASE_URL="$API_BASE_URL"
+          rm -f android/key.properties "$RUNNER_TEMP/figura-demo.jks"
+          mkdir -p work/delivery
+          cp build/app/outputs/flutter-apk/app-release.apk work/delivery/Figura-sandbox.apk
+          cd work/delivery
+          sha256sum Figura-sandbox.apk > SHA256SUMS.txt
+          printf 'Source commit: %s\nWorkflow run: %s/%s/actions/runs/%s\nAPI: %s (public sandbox, synthetic data, reset daily 04:00 Asia/Taipei)\nSigned with the sandbox demo key, not a store release key.\n' \
+            "$GITHUB_SHA" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" "$API_BASE_URL" > BUILD.txt
+      - name: Keep workflow artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: Figura-sandbox-apk
+          path: work/delivery/
+          retention-days: 14
+          compression-level: 0
+      - name: Publish sandbox-latest release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY" --jq '.private')" = false
+          gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag 2>/dev/null || true
+          cat > "$RUNNER_TEMP/notes.md" <<'NOTES'
+          Android 測試版，連線公開沙盒 https://figura.jackteng.dev（資料皆為虛構，每天 04:00 台北時間重置）。
+
+          - 示範顧客：`demo_customer` / `figura-demo-customer`（也可自行註冊，請勿輸入真實個資）
+          - 付款、物流、退款皆為模擬，不會實際收款。
+          - 以沙盒示範金鑰簽章，非商店版本；安裝時需允許「安裝不明來源的應用程式」。
+          - 對應原始碼與建置紀錄見附檔 `BUILD.txt`，檔案雜湊見 `SHA256SUMS.txt`。
+          NOTES
+          gh release create "$RELEASE_TAG" work/delivery/Figura-sandbox.apk work/delivery/SHA256SUMS.txt work/delivery/BUILD.txt \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --latest \
+            --title "Figura 沙盒測試版（Android）" --notes-file "$RUNNER_TEMP/notes.md"
