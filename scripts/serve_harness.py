@@ -2,7 +2,7 @@ import http.server,urllib.request,urllib.error,functools
 class Handler(http.server.SimpleHTTPRequestHandler):
  def log_message(self,*args):pass
  def do_GET(self):
-  if self.path.startswith('/ELPSY/api/'):return self.proxy()
+  if self.path.startswith('/figura/api/'):return self.proxy()
   return super().do_GET()
  def proxy(self):
   body=self.rfile.read(int(self.headers.get('Content-Length','0'))) or None

@@ -2,9 +2,9 @@
 
 Requires an already booted test emulator/device; never installs on every device.
 Private fixture/logs/APKs stay in ignored work/. Evidence contains no credentials.
-Build native_main.dart with API_BASE_URL=http://10.0.2.2:29102/ELPSY/api/;
+Build native_main.dart with API_BASE_URL=http://10.0.2.2:29102/figura/api/;
 build production main.dart with the same URL and a higher build number.
-For USB devices use adb reverse and http://127.0.0.1:29102/ELPSY/api/ instead.
+For USB devices use adb reverse and http://127.0.0.1:29102/figura/api/ instead.
 """
 import argparse
 import hashlib
@@ -83,7 +83,7 @@ def main():
                 self.send_json({'ok': True})
                 event.set()
                 return
-            if not self.path.startswith('/ELPSY/api/'):
+            if not self.path.startswith('/figura/api/'):
                 self.send_error(404)
                 return
             if (state['phase'] == 'resume' and not state['read_failed'] and
@@ -132,7 +132,7 @@ def main():
             finally:
                 conn.close()
 
-    package = 'com.elpsy.elpsy_shop'
+    package = 'dev.jackteng.figura'
     component = package + '/.MainActivity'
 
     def adb(*args, timeout=90):
@@ -168,15 +168,15 @@ def main():
         state['checks'].extend(result['checks'])
 
     def nodes():
-        adb('shell', 'uiautomator', 'dump', '/data/local/tmp/elpsy-window.xml', timeout=45)
-        return list(ET.fromstring(adb('shell', 'cat', '/data/local/tmp/elpsy-window.xml')).iter('node'))
+        adb('shell', 'uiautomator', 'dump', '/data/local/tmp/figura-window.xml', timeout=45)
+        return list(ET.fromstring(adb('shell', 'cat', '/data/local/tmp/figura-window.xml')).iter('node'))
 
     def find(label, timeout=90):
         end = time.monotonic() + timeout
         while time.monotonic() < end:
             window = nodes()
             # Software emulators can time out Android's own System UI. Record
-            # each recovery. Never dismiss an ELPSY App ANR or other dialog.
+            # each recovery. Never dismiss the app's own ANR or other dialog.
             if any(n.get('text') == "System UI isn't responding" for n in window):
                 if state['system_ui_waits'] >= 10:
                     raise RuntimeError('System UI remains unresponsive on this test emulator')

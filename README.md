@@ -62,7 +62,7 @@ Dio 存取公開 `catalog` 與 Bearer 驗證的 `mobile/customer` 路由；正�
 ## 本機啟動
 
 準備上述 Flutter SDK、Android SDK 與模擬器，先依後端文件啟動自己的全新隔離測試環境。
-將 shell 環境變數 `API_BASE_URL` 設為該後端的完整 API 位址，路徑以 `/ELPSY/api/` 結尾，再執行：
+將 shell 環境變數 `API_BASE_URL` 設為該後端的完整 API 位址，路徑以 `/figura/api/` 結尾，再執行：
 
 ```sh
 flutter pub get

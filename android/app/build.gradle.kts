@@ -21,7 +21,7 @@ if (merchantSigningFile.exists()) {
 }
 
 android {
-    namespace = "com.elpsy.elpsy_shop"
+    namespace = "dev.jackteng.figura"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -32,7 +32,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.elpsy.elpsy_shop"
+        applicationId = "dev.jackteng.figura"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

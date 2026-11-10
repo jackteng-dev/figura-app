@@ -4,9 +4,9 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:elpsy_shop/core/api.dart';
-import 'package:elpsy_shop/core/models.dart';
-import 'package:elpsy_shop/core/storage.dart';
+import 'package:figura/core/api.dart';
+import 'package:figura/core/models.dart';
+import 'package:figura/core/storage.dart';
 
 class Adapter implements HttpClientAdapter {
   final Future<ResponseBody> Function(RequestOptions) respond;
@@ -41,26 +41,26 @@ Json tokens(String access, String refresh) => {
 };
 ShopApi apiFor(Adapter adapter, PrivateStore store) => ShopApi(
   store: store,
-  baseUrl: 'https://shop.example/ELPSY/api/',
+  baseUrl: 'https://shop.example/figura/api/',
   client: Dio()..httpClientAdapter = adapter,
 );
 void main() {
   test('release requires HTTPS and debug HTTP is restricted to known loopback hosts', () {
     expect(
-      () => validateBase('http://store.example/ELPSY/api/', development: true),
+      () => validateBase('http://store.example/figura/api/', development: true),
       throwsA(isA<ShopError>()),
     );
     expect(
-      () => validateBase('http://127.0.0.1/ELPSY/api/', development: false),
+      () => validateBase('http://127.0.0.1/figura/api/', development: false),
       throwsA(isA<ShopError>()),
     );
     expect(
-      validateBase('http://10.0.2.2/ELPSY/api/', development: true).host,
+      validateBase('http://10.0.2.2/figura/api/', development: true).host,
       '10.0.2.2',
     );
     expect(
       () => validateBase(
-        'https://u:p@shop.example/ELPSY/api/',
+        'https://u:p@shop.example/figura/api/',
         development: false,
       ),
       throwsA(isA<ShopError>()),

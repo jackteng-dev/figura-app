@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:elpsy_shop/app.dart';
-import 'package:elpsy_shop/core/providers.dart';
-import 'package:elpsy_shop/core/storage.dart';
+import 'package:figura/app.dart';
+import 'package:figura/core/providers.dart';
+import 'package:figura/core/storage.dart';
 
 import 'api_test.dart' show Adapter, response, apiFor, tokens;
 
