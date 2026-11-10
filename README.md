@@ -8,7 +8,10 @@ App 與網站共用 [Figura API](https://github.com/jackteng-dev/figura-api)，�
 
 ## 展示
 
-同一套後端的網站版可在 [線上沙盒 figura.jackteng.dev](https://figura.jackteng.dev) 體驗；連線沙盒的 App 測試版尚在準備。已完成 Android 模擬器驗證；歷史私人測試 APK 的交付紀錄見[交接文件](docs/HANDOFF.md)，需具備存取權限，且 CI 重建的交付檔尚未完成裝置測試。
+- **Android 測試版 APK**：[下載 Figura-sandbox.apk](https://github.com/jackteng-dev/figura-app/releases/latest/download/Figura-sandbox.apk)（[版本頁](https://github.com/jackteng-dev/figura-app/releases/latest)），連線公開沙盒 [figura.jackteng.dev](https://figura.jackteng.dev)。資料皆為虛構，每天 04:00（台北時間）自動重置。
+  - 示範顧客：`demo_customer` / `figura-demo-customer`（也可自行註冊，請勿輸入真實個資）
+  - 由 GitHub Actions 建置並以沙盒示範金鑰簽章，非商店版本；安裝時需允許安裝不明來源的應用程式。
+- 同一套後端的網站版與員工後台也可在[線上沙盒](https://figura.jackteng.dev)體驗。
 
 ## 主要功能
 
