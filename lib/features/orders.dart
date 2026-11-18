@@ -107,7 +107,7 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   [
                     '${j['title'] ?? '訂單'}${lines > 1 ? ' 等 $lines 款' : ''} · 共 ${j['quantity']} 件',
                     '${twd(j['totalTwd'])} · ${dateLabel(j['createdAt'])}',
-                    if (j['balanceStatus'] == 'DUE')
+                    if (j['balanceStatus'] == 'DUE' && j['status'] == 'PAID')
                       '訂金已付，待付尾款${j['balanceDueAt'] != null ? '（${dateLabel(j['balanceDueAt'])} 前）' : ''}'
                     else if (pending && j['expiresAt'] != null)
                       '請在 ${dateLabel(j['expiresAt'])} 前完成付款',
@@ -182,14 +182,18 @@ class OrderScreen extends ConsumerWidget {
                 moneyRow('訂金', j['depositTwd']),
                 moneyRow('尾款', j['balanceTwd']),
                 Text(
-                  const {
-                        'NOT_DUE': '訂金付款後，到貨時通知支付尾款',
-                        'DUE': '待付尾款',
-                        'PAID': '尾款已付清',
-                      }[j['balanceStatus']] ??
-                      '',
+                  j['status'] == 'REFUNDED'
+                      ? '已退款'
+                      : const {
+                              'NOT_DUE': '訂金付款後，到貨時通知支付尾款',
+                              'DUE': '待付尾款',
+                              'PAID': '尾款已付清',
+                            }[j['balanceStatus']] ??
+                            '',
                 ),
-                if (j['balanceStatus'] == 'DUE' && j['balanceDueAt'] != null)
+                if (j['balanceStatus'] == 'DUE' &&
+                    j['status'] == 'PAID' &&
+                    j['balanceDueAt'] != null)
                   Text('尾款期限 ${dateLabel(j['balanceDueAt'])}'),
                 if (j['balancePaidAt'] != null)
                   Text('尾款付款 ${dateLabel(j['balancePaidAt'])}'),
@@ -294,7 +298,7 @@ class OrderScreen extends ConsumerWidget {
               if (options['canStart'] == true)
                 WriteButton(
                   label: preorder && j['payNowTwd'] != null
-                      ? '建立${j['balanceStatus'] == 'DUE'
+                      ? '建立${j['balanceStatus'] == 'DUE' && j['status'] == 'PAID'
                             ? '尾款'
                             : j['paymentMode'] == 'DEPOSIT'
                             ? '訂金'
