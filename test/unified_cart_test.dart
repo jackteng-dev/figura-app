@@ -285,6 +285,7 @@ void main() {
       expect(quotes.last, contains('shippingMethod=CVS'));
       expect(quotes.last, contains('deliveryStrategy=COMBINED'));
       expect(find.text('原操作應付金額'), findsOneWidget);
+      expect(find.text('商品小計'), findsNothing, reason: '不混用即時報價明細');
       final before = quotes.length;
       await tester.tap(find.text('宅配到府'));
       await tester.pumpAndSettle();

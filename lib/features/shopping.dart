@@ -586,8 +586,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             ]),
           infoCard('金額確認', [
             if (groups.length > 1) Text('訂單數 ${groups.length} 張'),
-            moneyRow('商品小計', preorder ? subtotal : purchase['subtotalTwd']),
-            moneyRow('運費', preorder ? 0 : purchase['shippingTwd']),
+            // 未確認的結帳：購物車可能已被原操作清空，只顯示原操作金額，不混用即時明細
+            if (!restoring) ...[
+              moneyRow('商品小計', preorder ? subtotal : purchase['subtotalTwd']),
+              moneyRow('運費', preorder ? 0 : purchase['shippingTwd']),
+            ],
+            if (restoring) const Text('上一筆結帳結果未確認：請用原編號核對／重試，金額與配送以原操作為準。'),
             if (restoring)
               moneyRow(
                 '原操作應付金額',
