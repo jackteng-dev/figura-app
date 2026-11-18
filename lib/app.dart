@@ -288,11 +288,16 @@ class PendingBanner extends ConsumerWidget {
                               .request('GET', resource);
                           if (!context.mounted) return;
                           final summary = resource == 'cart'
-                              ? objects(data['items'])
-                                    .map(
-                                      (i) => '${i['title']} × ${i['quantity']}',
-                                    )
-                                    .join('\n')
+                              ? [
+                                  ...objects(data['items']).map(
+                                    (i) =>
+                                        '現貨 ${i['title']} × ${i['quantity']}',
+                                  ),
+                                  ...objects(data['preorders']).map(
+                                    (i) =>
+                                        '預購 ${i['title']}（${i['batchName']}）× ${i['quantity']}',
+                                  ),
+                                ].join('\n')
                               : resource == 'addresses'
                               ? objects(data)
                                     .map((a) => Address(a).label)
