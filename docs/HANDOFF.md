@@ -11,6 +11,7 @@
 - **綠界**：付款清單 `provider=ECPAY`（網站發起的綠界測試付款）在 App 只顯示、不提供模擬成功／失敗（後端也會拒絕）。
 - **不變**：Bearer／refresh 輪替／secure storage／pending UUID 機制、`storage.dart`、`Writes` 未改；`pubspec.lock` 未變。
 - **測試（本機 Windows，Flutter 3.47.6 同 CI 釘選 commit，SDK 在忽略的 `work/flutter`）**：`dart format` 無變更；`flutter analyze` 0 issue；`flutter test` 24 通過、2 個 opt-in live 測試 skip（新增 `test/contact_login_test.dart` 11 項）。對本機隔離後端（figura-api `feat/buy-now` 建置＝含 contact-only-login，隔離 demo DB）：`live_socket_test` 2 項通過（新增「手機＋Email 註冊、重複 409、Email 大寫登入、refresh 輪替、修改暱稱 403、登出清除 refresh、手機重新登入、內部帳號名稱 401」，原有購物／預購／付款流程）；debug browser harness `smoke_browser.cjs` 11 項 UI 通過；`flutter build web --release` 成功。
+- **發布前檢查（同日）**：版本升到 `0.2.1+4`（公開 `sandbox-latest` 為 0.2.0+3）。在本分支手動執行 `android-sandbox-apk.yml`（run 44262631768）：Linux 上 format／analyze／test 通過、APK 建置成功、**publish 步驟 skipped**，`sandbox-latest` 未變（仍為 2026-11-10、59f041d）。Artifact 靜態檢查：SHA256 相符、package `dev.jackteng.figura`、versionCode 3→4、v2 簽章憑證與公開版相同（可覆蓋升級）、3 個 ABI、內建沙盒 API。新版 App 對目前 figura-api **main** 後端 live 測試也通過（註冊、409、Email 登入、refresh、登出、手機重新登入、購物），所以 App 可以先於後端上線。Release 說明與 README 示範帳號改為 Email `demo-customer@example.com`（需伺服器每日重置種子配合）。**APK 未安裝到任何裝置或模擬器。**
 - **未做**：本機沒有 Android SDK，**未建置 APK、未跑 Android 模擬器／原生 `verify_android.py`**（已改用新欄位，未實跑）；iOS 未驗證。本 repo 沒有 PR 自動 CI（只有手動、會發布 sandbox APK 的 workflow，未觸發）。
 
 更新：2026-10-08。獨立私人 Flutter 顧客 App 第一版已完成；本輪完成 Android 模擬器原生核心驗收與可安裝測試 APK 0.1.1+2，補商家正式簽章設定及 iOS Keychain entitlement。仍共用 shop_bak_ap 後端；Shop_back Vue 網站及員工後台保留。實體手機、iOS build、商家正式簽章／上架與正式營業尚未完成。
