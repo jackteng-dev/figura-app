@@ -1,5 +1,12 @@
 # Shop_app 交接
 
+## 2026-11-18：Phase 2 統一訂單中心
+
+分支 `feat/order-center`（疊在 `feat/contact-only-login` 上），需要後端 `feat/order-center`。
+
+- 「訂單」分頁改用 `order-center`：全部／現貨／預購切換、狀態與排序下拉，伺服器端分頁；卡片顯示「現貨訂單／預購訂單 · 階段」、標題、件數、金額、付款期限、預計到貨。點選仍進原本的現貨／預購詳情（付款、取消不變）。
+- 測試：`flutter analyze` 0 issue、`flutter test` 25 通過（新增 `order_center_test.dart`）；live 測試對本機後端通過（新增 order-center 檢查）；`smoke_browser.cjs` 改用新標題格式（未實跑）。
+
 ## 2026-11-18：配合後端「只用手機＋Email」（contact-only-login）
 
 分支 `feat/contact-only-login`，需與 figura-api `feat/contact-only-login`（jackteng-dev/figura-api#10）一起上線；**App 先上或同時上**，否則舊版 App 註冊與修改暱稱會失敗。
