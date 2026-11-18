@@ -368,6 +368,18 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String method = 'HOME', strategy = 'SPLIT';
   String? store;
   @override
+  void initState() {
+    super.initState();
+    // 有未確認的統一結帳：畫面顯示原操作的配送選擇（重試送出的就是這份內容）
+    final p = ref.read(writesProvider).pending;
+    if (widget.batchId == null && p != null && p.path == 'checkout') {
+      method = p.body['shippingMethod'] ?? 'HOME';
+      strategy = p.body['deliveryStrategy'] ?? 'SPLIT';
+      store = p.body['pickupStoreId'];
+    }
+  }
+
+  @override
   Widget build(BuildContext context) => RequestView(
     // 換配送方式或寄送方式就重新向伺服器報價
     key: ValueKey('$method|$strategy'),
@@ -408,6 +420,13 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 groups.isNotEmpty &&
                 (method != 'CVS' || store != null);
       final stores = objects(data['stores']);
+      // 有任何未確認寫入時凍結配送選擇；未確認的結帳顯示原操作金額
+      final pendingCheckout = ref.watch(writesProvider).pending;
+      final locked = pendingCheckout != null;
+      final restoring =
+          !preorder &&
+          pendingCheckout != null &&
+          pendingCheckout.path == 'checkout';
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -512,10 +531,12 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         : '暫停使用',
                   ),
                   enabled: m['enabled'] == true,
-                  onTap: () => setState(() {
-                    method = m['code'];
-                    if (method != 'CVS') store = null;
-                  }),
+                  onTap: locked
+                      ? null
+                      : () => setState(() {
+                          method = m['code'];
+                          if (method != 'CVS') store = null;
+                        }),
                 ),
               if (method == 'CVS')
                 DropdownButtonFormField<String>(
@@ -533,7 +554,7 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                         ),
                       )
                       .toList(),
-                  onChanged: (v) => setState(() => store = v),
+                  onChanged: locked ? null : (v) => setState(() => store = v),
                 ),
               if (groups.length > 1) ...[
                 const SizedBox(height: 8),
@@ -554,7 +575,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                     ),
                     title: Text(s[1]),
                     subtitle: Text(s[2]),
-                    onTap: () => setState(() => strategy = s[0]),
+                    onTap: locked
+                        ? null
+                        : () => setState(() => strategy = s[0]),
                   ),
               ],
               Text(
@@ -565,7 +588,14 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
             if (groups.length > 1) Text('訂單數 ${groups.length} 張'),
             moneyRow('商品小計', preorder ? subtotal : purchase['subtotalTwd']),
             moneyRow('運費', preorder ? 0 : purchase['shippingTwd']),
-            moneyRow('合計', subtotal, emphasis: true),
+            if (restoring)
+              moneyRow(
+                '原操作應付金額',
+                pendingCheckout.body['expectedTotalTwd'],
+                emphasis: true,
+              )
+            else
+              moneyRow('合計', subtotal, emphasis: true),
           ]),
           const Text(
             '目前採整筆付款的模擬流程。訂單建立後保留 30 分鐘，預購不晚於截單時間；多張訂單會一起建立，任一張無法建立就全部不建立。',

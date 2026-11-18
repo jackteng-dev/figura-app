@@ -20,6 +20,8 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       Map<String, dynamic>? posted;
       final quotes = <String>[];
+      var attempts = 0;
+      Map<String, dynamic>? firstBody;
       final adapter = Adapter((o) async {
         if (o.path.endsWith('auth/login')) {
           return response(200, tokens('a', 'r'));
@@ -186,6 +188,11 @@ void main() {
           ]);
         }
         if (o.path == 'mobile/customer/checkout' && o.method == 'POST') {
+          // 第一次送出結果未知（伺服器錯誤），之後以同一內容重試成功
+          if (attempts++ == 0) {
+            firstBody = jsonDecode(jsonEncode(o.data)) as Map<String, dynamic>;
+            return response(503, null);
+          }
           posted = jsonDecode(jsonEncode(o.data)) as Map<String, dynamic>;
           return response(200, {
             'groupId': 'g1',
@@ -268,7 +275,24 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('建立訂單'));
       await tester.pumpAndSettle();
+      expect(firstBody, isNotNull);
+      expect(posted, isNull);
+      // 重新開啟結帳：顯示原操作的配送選擇與金額，配送選項凍結（點宅配不重新報價）
+      await tester.tap(find.text('購物車'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('確認結帳'));
+      await tester.pumpAndSettle();
+      expect(quotes.last, contains('shippingMethod=CVS'));
+      expect(quotes.last, contains('deliveryStrategy=COMBINED'));
+      expect(find.text('原操作應付金額'), findsOneWidget);
+      final before = quotes.length;
+      await tester.tap(find.text('宅配到府'));
+      await tester.pumpAndSettle();
+      expect(quotes.length, before);
+      await tester.tap(find.text('以原編號核對／重試'));
+      await tester.pumpAndSettle();
       expect(posted, isNotNull);
+      expect(posted, firstBody, reason: '重試送出原內容');
       expect(posted!['cartVersion'], 4);
       expect(posted!['expectedTotalTwd'], 4880);
       expect(posted!['addressId'], 'addr-1');
