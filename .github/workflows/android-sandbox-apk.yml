@@ -1,6 +1,7 @@
 name: Android sandbox APK
 # Builds the customer app against the public sandbox (https://figura.jackteng.dev, synthetic data,
-# daily reset) and publishes it as the "sandbox-latest" GitHub release.
+# daily reset). Only a run on main (push or manual) replaces the public "sandbox-latest" release;
+# a manual run on any other branch only verifies, builds and keeps the APK as a workflow artifact.
 on:
   workflow_dispatch:
   push:
@@ -93,7 +94,7 @@ jobs:
           cat > "$RUNNER_TEMP/notes.md" <<'NOTES'
           Android 測試版，連線公開沙盒 https://figura.jackteng.dev（資料皆為虛構，每天 04:00 台北時間重置）。
 
-          - 示範顧客：`demo_customer` / `figura-demo-customer`（也可自行註冊，請勿輸入真實個資）
+          - 示範顧客：Email `demo-customer@example.com`，密碼 `figura-demo-customer`（也可用手機＋Email 自行註冊，請勿輸入真實個資）
           - 付款、物流、退款皆為模擬，不會實際收款。
           - 以沙盒示範金鑰簽章，非商店版本；安裝時需允許「安裝不明來源的應用程式」。
           - 對應原始碼與建置紀錄見附檔 `BUILD.txt`，檔案雜湊見 `SHA256SUMS.txt`。
