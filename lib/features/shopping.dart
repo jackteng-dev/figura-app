@@ -418,6 +418,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               Text(
                 '預估到貨 ${dateLabel(purchase['arrivalFrom'])} ～ ${dateLabel(purchase['arrivalTo'])}',
               ),
+              if (purchase['paymentMode'] == 'DEPOSIT')
+                Text(
+                  '訂金制：現在付訂金 ${twd((purchase['depositTwd'] as num) * quantity)}，尾款到貨通知後 ${purchase['balanceDays']} 天內支付',
+                ),
             ] else ...[
               if (groups.length > 1)
                 Text('這次結帳會拆成 ${groups.length} 張訂單：現貨一張、每個預購批次各一張，各自付款與出貨。'),
@@ -441,6 +445,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                   ),
                 ),
                 moneyRow('這張訂單', g['totalTwd']),
+                if ((g['payLaterTwd'] as num? ?? 0) > 0)
+                  Text(
+                    '訂金制：現在付 ${twd(g['payNowTwd'])}，尾款 ${twd(g['payLaterTwd'])} 到貨通知後支付',
+                  ),
               ],
             ],
           ]),

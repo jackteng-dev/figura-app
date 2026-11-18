@@ -107,7 +107,9 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
                   [
                     '${j['title'] ?? '訂單'}${lines > 1 ? ' 等 $lines 款' : ''} · 共 ${j['quantity']} 件',
                     '${twd(j['totalTwd'])} · ${dateLabel(j['createdAt'])}',
-                    if (pending && j['expiresAt'] != null)
+                    if (j['balanceStatus'] == 'DUE')
+                      '訂金已付，待付尾款${j['balanceDueAt'] != null ? '（${dateLabel(j['balanceDueAt'])} 前）' : ''}'
+                    else if (pending && j['expiresAt'] != null)
                       '請在 ${dateLabel(j['expiresAt'])} 前完成付款',
                     if (preorder && j['arrivalFrom'] != null)
                       '預計到貨 ${dateLabel(j['arrivalFrom'])} ～ ${dateLabel(j['arrivalTo'])}',
@@ -169,8 +171,29 @@ class OrderScreen extends ConsumerWidget {
               moneyRow('訂單合計', order.total, emphasis: true),
               Text('建立 ${dateLabel(j['createdAt'])}'),
               if (order.pending) Text('付款期限 ${dateLabel(j['expiresAt'])}'),
-              if (j['paidAt'] != null) Text('付款 ${dateLabel(j['paidAt'])}'),
+              if (j['paidAt'] != null)
+                Text(
+                  '${j['paymentMode'] == 'DEPOSIT' ? '訂金付款' : '付款'} ${dateLabel(j['paidAt'])}',
+                ),
             ]),
+            // Phase 4：訂金制預購（訂金確保名額，到貨通知後付尾款）
+            if (preorder && j['paymentMode'] == 'DEPOSIT')
+              infoCard('訂金與尾款', [
+                moneyRow('訂金', j['depositTwd']),
+                moneyRow('尾款', j['balanceTwd']),
+                Text(
+                  const {
+                        'NOT_DUE': '訂金付款後，到貨時通知支付尾款',
+                        'DUE': '待付尾款',
+                        'PAID': '尾款已付清',
+                      }[j['balanceStatus']] ??
+                      '',
+                ),
+                if (j['balanceStatus'] == 'DUE' && j['balanceDueAt'] != null)
+                  Text('尾款期限 ${dateLabel(j['balanceDueAt'])}'),
+                if (j['balancePaidAt'] != null)
+                  Text('尾款付款 ${dateLabel(j['balancePaidAt'])}'),
+              ]),
             infoCard(
               '商品快照',
               preorder
@@ -181,6 +204,11 @@ class OrderScreen extends ConsumerWidget {
                       Text(
                         '預估到貨 ${dateLabel(j['arrivalFrom'])} ～ ${dateLabel(j['arrivalTo'])}',
                       ),
+                      // 到貨時程異動（只有對外說明與前後日期）
+                      for (final s in objects(j['schedule']))
+                        Text(
+                          '${s['action'] == 'DELAY' ? '延期' : '調整'}：${dateLabel(s['arrivalFromBefore'])} ～ ${dateLabel(s['arrivalToBefore'])} → ${dateLabel(s['arrivalFromAfter'])} ～ ${dateLabel(s['arrivalToAfter'])}。${s['publicReason']}',
+                        ),
                     ]
                   : objects(j['items'])
                         .map<Widget>(
@@ -265,7 +293,13 @@ class OrderScreen extends ConsumerWidget {
               if (options['enabled'] != true) const Text('目前未開啟模擬付款'),
               if (options['canStart'] == true)
                 WriteButton(
-                  label: '建立模擬付款',
+                  label: preorder && j['payNowTwd'] != null
+                      ? '建立${j['balanceStatus'] == 'DUE'
+                            ? '尾款'
+                            : j['paymentMode'] == 'DEPOSIT'
+                            ? '訂金'
+                            : ''}模擬付款（${twd(j['payNowTwd'])}）'
+                      : '建立模擬付款',
                   action: () async {
                     await ref.read(writesProvider).run(
                       'POST',
@@ -286,7 +320,7 @@ class OrderScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${p['provider'] == 'ECPAY' ? '綠界測試信用卡 · ' : ''}${statusLabel(p['status'])} · ${twd(p['amountTwd'])}',
+                        '${p['provider'] == 'ECPAY' ? '綠界測試信用卡 · ' : ''}${const {'DEPOSIT': '訂金 · ', 'BALANCE': '尾款 · '}[p['stage']] ?? ''}${statusLabel(p['status'])} · ${twd(p['amountTwd'])}',
                       ),
                       // 綠界（網站建立）的付款不能在 App 模擬，結果以伺服器收到的綠界通知為準
                       if (p['provider'] == 'ECPAY' &&
