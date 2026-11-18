@@ -36,7 +36,12 @@ ResponseBody response(int status, dynamic data) => ResponseBody.fromString(
 Json tokens(String access, String refresh) => {
   'accessToken': access,
   'refreshToken': refresh,
-  'customer': {'id': 'owner', 'username': 'member', 'displayName': '會員'},
+  'customer': {
+    'id': 'owner',
+    'email': 'member@example.test',
+    'phone': '0912345678',
+    'emailVerified': true,
+  },
   'expiresIn': 900,
 };
 ShopApi apiFor(Adapter adapter, PrivateStore store) => ShopApi(

@@ -181,8 +181,6 @@ void main() {
       if (o.path == 'mobile/customer/me') {
         return response(200, {
           'id': 'owner',
-          'username': 'm_internal_generated',
-          'displayName': '會員5678',
           'email': 'member@example.test',
           'phone': '0912345678',
           'emailVerified': false,
@@ -209,7 +207,6 @@ void main() {
     expect(find.text('Email：member@example.test'), findsOneWidget);
     expect(find.text('Email 尚未驗證'), findsOneWidget);
     expect(find.text('手機：0912345678'), findsOneWidget);
-    expect(find.textContaining('m_internal_generated'), findsNothing);
     expect(find.text('更新名稱'), findsNothing);
     expect(adapter.requests.any((o) => o.method == 'PATCH'), false);
   });

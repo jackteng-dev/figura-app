@@ -142,16 +142,8 @@ void main() {
     // 重新登入（用手機）
     await api.login(phone, password);
     expect(object(await api.request('GET', 'me'))['phone'], phone);
-    // 系統產生的內部帳號名稱不能登入
-    final other = ShopApi(
-      store: MemoryStore(),
-      baseUrl: base,
-      development: true,
-    );
-    await expectLater(
-      other.login(me['username'] as String, password),
-      throwsA(isA<ShopError>().having((e) => e.status, 'status', 401)),
-    );
+    // 會員資料只回傳 ID／Email／手機／驗證狀態，不再有內部 username 或暱稱
+    expect(me.containsKey('username') || me.containsKey('displayName'), false);
     await api.logout();
   }, skip: base.isEmpty ? 'Requires private disposable live fixture' : false);
 }

@@ -2,7 +2,7 @@
 
 Base URI 必須 HTTPS 且以 /figura/api/ 結尾；debug 限 loopback/10.0.2.2 HTTP。登入 `/mobile/customer/auth` 與受保護 `/mobile/customer/*` 使用 JSON/Bearer，公開 `/catalog` 不帶token；完全不讀寫網站Cookie／CSRF、員工API或私有S3。圖片只用已知public route重建URL，不接受任意外部圖URL或夾帶token。
 
-會員身分（2026-11-18 起，對應後端 contact-only-login）：註冊 `POST /mobile/customer/auth/register` 只送 `{email, phone, password}`（多帶欄位後端回 400）；登入 body 欄位仍叫 `username`，內容為正規化後的手機（09xxxxxxxx）或小寫 Email；系統產生的內部 `username`／`displayName` 不顯示、不能登入；`PATCH me`（修改暱稱）已移除，舊版 App 殘留的該 pending 只能重讀核對後解除。付款清單 `provider=ECPAY`（網站發起的綠界測試付款）不在 App 模擬。
+會員身分（2026-11-18 起，對應後端 contact-only-login）：註冊 `POST /mobile/customer/auth/register` 只送 `{email, phone, password}`（多帶欄位後端回 400）；登入 body 欄位仍叫 `username`，內容為正規化後的手機（09xxxxxxxx）或小寫 Email；回傳的會員資料只有 `{id, createdAt, email, phone, emailVerified}`（後端不再回傳內部 `username`／`displayName`，App 也不使用）；`PATCH me`（修改暱稱）已移除，舊版 App 殘留的該 pending 只能重讀核對後解除。付款清單 `provider=ECPAY`（網站發起的綠界測試付款）不在 App 模擬。
 
 access 只記憶體，refresh與deviceUUID使用原生secure storage；密碼不保存。refresh只有同時一筆，伺服器先拒絕401才重試一次原請求；網路或5xx不自動重送。登出本機清除並呼叫遠端撤銷，回應未知顯示撤銷未確認；登出與refresh競爭不讓遲到pair恢復登入。暫時503保留refresh讓人重試，明確401失效才清除。網站Token/staffToken不被新後端接受。
 

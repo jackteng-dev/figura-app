@@ -94,7 +94,7 @@ jobs:
           cat > "$RUNNER_TEMP/notes.md" <<'NOTES'
           Android 測試版，連線公開沙盒 https://figura.jackteng.dev（資料皆為虛構，每天 04:00 台北時間重置）。
 
-          - 示範顧客：Email `demo-customer@example.com`，密碼 `figura-demo-customer`（也可用手機＋Email 自行註冊，請勿輸入真實個資）
+          - 示範顧客：Email `demo-customer@example.com` 或手機 `0900000000`，密碼 `figura-demo-customer`（也可用手機＋Email 自行註冊，請勿輸入真實個資）
           - 付款、物流、退款皆為模擬，不會實際收款。
           - 以沙盒示範金鑰簽章，非商店版本；安裝時需允許「安裝不明來源的應用程式」。
           - 對應原始碼與建置紀錄見附檔 `BUILD.txt`，檔案雜湊見 `SHA256SUMS.txt`。
