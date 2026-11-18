@@ -101,6 +101,23 @@ void main() {
           .any((o) => o['id'] == pre['id']),
       true,
     );
+    // 統一訂單中心：同一個列表看得到剛建立的現貨與預購訂單
+    final center = object(
+      await api.request(
+        'GET',
+        'order-center?kind=ALL&stage=ALL&sort=NEWEST&page=1&pageSize=50',
+      ),
+    );
+    final centerIds = objects(center['items']).map((o) => o['id']).toSet();
+    expect(centerIds.containsAll({stock['id'], pre['id']}), true);
+    expect(
+      objects(
+        object(
+          await api.request('GET', 'order-center?kind=PREORDER&page=1'),
+        )['items'],
+      ).every((o) => o['kind'] == 'PREORDER'),
+      true,
+    );
     await api.refresh();
     // APP_TEST_USERNAME 是登入識別（Email）
     expect(object(await api.request('GET', 'me'))['email'], username);

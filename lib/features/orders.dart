@@ -7,6 +7,27 @@ import '../core/models.dart';
 import '../core/providers.dart';
 import 'common.dart';
 
+/// 統一訂單中心（後端 /order-center）：現貨與預購同一個列表，伺服器端篩選、排序與全域分頁。
+/// 詳情、付款、取消等操作沿用原本的現貨／預購詳情畫面。
+const orderStages = {
+  'ALL': '全部狀態',
+  'PENDING_PAYMENT': '待付款',
+  'WAITING_ARRIVAL': '等待到貨',
+  'TO_SHIP': '待出貨',
+  'SHIPPED': '已出貨',
+  'COMPLETED': '已完成',
+  'RETURNING': '退貨處理中',
+  'CANCELLED': '已取消',
+  'REFUNDED': '已退款',
+  'REVIEW': '付款待核對',
+};
+const orderSorts = {
+  'NEWEST': '最新優先',
+  'OLDEST': '最舊優先',
+  'AMOUNT_DESC': '金額高到低',
+  'AMOUNT_ASC': '金額低到高',
+};
+
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
   @override
@@ -14,46 +35,89 @@ class OrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
-  bool preorder = false;
+  String kind = 'ALL', stage = 'ALL', sort = 'NEWEST';
   @override
   Widget build(BuildContext context) => Column(
     children: [
       Padding(
-        padding: const EdgeInsets.all(16),
-        child: SegmentedButton<bool>(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: SegmentedButton<String>(
           segments: const [
-            ButtonSegment(value: false, label: Text('現貨訂單')),
-            ButtonSegment(value: true, label: Text('預購訂單')),
+            ButtonSegment(value: 'ALL', label: Text('全部')),
+            ButtonSegment(value: 'STOCK', label: Text('現貨')),
+            ButtonSegment(value: 'PREORDER', label: Text('預購')),
           ],
-          selected: {preorder},
-          onSelectionChanged: (v) => setState(() => preorder = v.first),
+          selected: {kind},
+          onSelectionChanged: (v) => setState(() => kind = v.first),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: stage,
+                items: [
+                  for (final e in orderStages.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
+                ],
+                onChanged: (v) => setState(() => stage = v ?? 'ALL'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: sort,
+                items: [
+                  for (final e in orderSorts.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
+                ],
+                onChanged: (v) => setState(() => sort = v ?? 'NEWEST'),
+              ),
+            ),
+          ],
         ),
       ),
       Expanded(
         child: PagedView(
-          key: ValueKey(preorder),
+          key: ValueKey('$kind/$stage/$sort'),
           load: (page) async => object(
             await ref
                 .read(apiProvider)
                 .request(
                   'GET',
-                  '${preorder ? 'preorders' : 'orders'}?page=$page&pageSize=10',
+                  'order-center?kind=$kind&stage=$stage&sort=$sort&page=$page&pageSize=10',
                 ),
           ),
-          empty: '目前沒有${preorder ? '預購' : '現貨'}訂單',
+          empty: '這個篩選條件沒有訂單',
           item: (j) {
-            final order = ShopOrder(j, preorder: preorder);
+            final preorder = j['kind'] == 'PREORDER';
+            final lines = (j['lineCount'] as num?)?.toInt() ?? 1;
+            final pending = j['stage'] == 'PENDING_PAYMENT';
             return Card(
               child: ListTile(
                 contentPadding: const EdgeInsets.all(16),
-                title: Text(order.title),
+                title: Text(
+                  '${preorder ? '預購訂單' : '現貨訂單'} · ${orderStages[j['stage']] ?? j['stage']}',
+                ),
                 subtitle: Text(
-                  '${statusLabel(order.status)} · ${twd(order.total)}\n${dateLabel(j['createdAt'])}\n${order.id}',
+                  [
+                    '${j['title'] ?? '訂單'}${lines > 1 ? ' 等 $lines 款' : ''} · 共 ${j['quantity']} 件',
+                    '${twd(j['totalTwd'])} · ${dateLabel(j['createdAt'])}',
+                    if (pending && j['expiresAt'] != null)
+                      '請在 ${dateLabel(j['expiresAt'])} 前完成付款',
+                    if (preorder && j['arrivalFrom'] != null)
+                      '預計到貨 ${dateLabel(j['arrivalFrom'])} ～ ${dateLabel(j['arrivalTo'])}',
+                    if (j['paymentReviewRequired'] == true) '付款通知待人工核對',
+                  ].join('\n'),
                 ),
                 isThreeLine: true,
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(
-                  '/orders/${preorder ? 'preorder' : 'stock'}/${order.id}',
+                  '/orders/${preorder ? 'preorder' : 'stock'}/${j['id']}',
                 ),
               ),
             );
