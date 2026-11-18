@@ -115,6 +115,20 @@ void main() {
       expect(adapter.requests.last.path, contains('kind=PREORDER'));
       expect(find.text('現貨訂單 · 待出貨'), findsNothing);
       expect(find.text('預購訂單 · 待付款'), findsOneWidget);
+      // 狀態與排序由伺服器處理
+      await tester.tap(find.text('全部狀態'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('待付款').last);
+      await tester.pumpAndSettle();
+      expect(adapter.requests.last.path, contains('stage=PENDING_PAYMENT'));
+      await tester.tap(find.text('最新優先'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('金額高到低').last);
+      await tester.pumpAndSettle();
+      expect(
+        adapter.requests.last.path,
+        contains('kind=PREORDER&stage=PENDING_PAYMENT&sort=AMOUNT_DESC&page=1'),
+      );
       // 舊的分開列表 API 不再被訂單分頁使用
       expect(
         adapter.requests.any(
