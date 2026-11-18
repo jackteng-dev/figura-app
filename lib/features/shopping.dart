@@ -364,17 +364,31 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? selected;
   int quantity = 1;
+  // 配送（Phase 5，只用於購物車結帳）：方式、合併／分開寄、超商測試門市
+  String method = 'HOME', strategy = 'SPLIT';
+  String? store;
   @override
   Widget build(BuildContext context) => RequestView(
+    // 換配送方式或寄送方式就重新向伺服器報價
+    key: ValueKey('$method|$strategy'),
     load: () async {
       final api = ref.read(apiProvider);
       final values = await Future.wait([
         api.request('GET', 'addresses'),
         widget.batchId == null
-            ? api.request('GET', 'checkout/quote')
+            ? api.request(
+                'GET',
+                'checkout/quote?shippingMethod=$method&deliveryStrategy=$strategy',
+              )
             : api.publicGet('preorders/${widget.batchId}'),
+        if (widget.batchId == null)
+          api.request('GET', 'checkout/pickup-stores'),
       ]);
-      return {'addresses': values[0], 'purchase': values[1]};
+      return {
+        'addresses': values[0],
+        'purchase': values[1],
+        'stores': values.length > 2 ? values[2] : [],
+      };
     },
     render: (data, reload) {
       final addresses = objects(data['addresses']).map(Address.new).toList(),
@@ -390,7 +404,10 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final valid = preorder
           ? purchase['orderingEnabled'] == true &&
                 quantity <= (purchase['availableQuota'] as int)
-          : purchase['ready'] == true && groups.isNotEmpty;
+          : purchase['ready'] == true &&
+                groups.isNotEmpty &&
+                (method != 'CVS' || store != null);
+      final stores = objects(data['stores']);
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -478,10 +495,76 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               child: const Text('管理收件地址'),
             ),
           ]),
+          if (!preorder)
+            infoCard('配送方式', [
+              for (final m in objects(purchase['methods']))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    method == m['code']
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                  ),
+                  title: Text('${m['name']}'),
+                  subtitle: Text(
+                    m['enabled'] == true
+                        ? '運費 ${twd(m['feeTwd'])}${m['freeThresholdTwd'] != null ? '，滿 ${twd(m['freeThresholdTwd'])} 免運' : ''}'
+                        : '暫停使用',
+                  ),
+                  enabled: m['enabled'] == true,
+                  onTap: () => setState(() {
+                    method = m['code'];
+                    if (method != 'CVS') store = null;
+                  }),
+                ),
+              if (method == 'CVS')
+                DropdownButtonFormField<String>(
+                  initialValue: store,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: '取貨門市（測試門市）'),
+                  items: stores
+                      .map(
+                        (s) => DropdownMenuItem(
+                          value: s['storeId'] as String,
+                          child: Text(
+                            '${s['brandName']} ${s['storeName']}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setState(() => store = v),
+                ),
+              if (groups.length > 1) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  '寄送方式',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                for (final s in const [
+                  ['SPLIT', '分開寄', '現貨先寄，預購到貨再各自寄出（各自計運費）'],
+                  ['COMBINED', '一起寄', '全部到齊後一次寄出（只算一次運費）'],
+                ])
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      strategy == s[0]
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                    ),
+                    title: Text(s[1]),
+                    subtitle: Text(s[2]),
+                    onTap: () => setState(() => strategy = s[0]),
+                  ),
+              ],
+              Text(
+                '共 ${objects(purchase['shipments']).length} 個包裹。出貨與配送為測試物流，不會實際寄送。',
+              ),
+            ]),
           infoCard('金額確認', [
             if (groups.length > 1) Text('訂單數 ${groups.length} 張'),
-            moneyRow('商品小計', subtotal),
-            moneyRow('展示運費', 0),
+            moneyRow('商品小計', preorder ? subtotal : purchase['subtotalTwd']),
+            moneyRow('運費', preorder ? 0 : purchase['shippingTwd']),
             moneyRow('合計', subtotal, emphasis: true),
           ]),
           const Text(
@@ -503,6 +586,9 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 } else ...{
                   'cartVersion': purchase['cartVersion'],
                   'expectedTotalTwd': subtotal,
+                  'shippingMethod': method,
+                  'deliveryStrategy': purchase['deliveryStrategy'] ?? strategy,
+                  if (method == 'CVS') 'pickupStoreId': store,
                 },
               };
               final result = object(

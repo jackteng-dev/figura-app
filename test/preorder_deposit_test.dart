@@ -66,6 +66,44 @@ Map<String, dynamic> depositOrder() => {
       'createdAt': '2026-11-18T10:00:00+08:00',
     },
   ],
+  'shipment': {
+    'id': 'ship-1',
+    'method': 'CVS',
+    'methodName': '超商取貨',
+    'strategy': 'COMBINED',
+    'feeTwd': 0,
+    'goodsTwd': 7280,
+    'status': 'WAITING',
+    'waitingFor': 'BALANCE',
+    'carrier': 'TEST',
+    'trackingNumber': null,
+    'destination': {
+      'type': 'CVS',
+      'recipientName': '測試收件人',
+      'phone': '0912345678',
+      'storeBrand': '7-ELEVEN（測試）',
+      'storeName': '測試門市・台北信義',
+      'storeId': 'TEST-711-001',
+      'test': true,
+    },
+    'orders': [
+      {
+        'kind': 'STOCK',
+        'id': 'st-1',
+        'title': '月梨信差',
+        'status': 'PAID',
+        'fulfillmentStatus': 'UNFULFILLED',
+      },
+      {
+        'kind': 'PREORDER',
+        'id': 'pre-1',
+        'title': '露珠採集員・秋季預購',
+        'status': 'PAID',
+        'fulfillmentStatus': 'UNFULFILLED',
+      },
+    ],
+    'version': 1,
+  },
 };
 
 void main() {
@@ -180,6 +218,10 @@ void main() {
       expect(find.text('訂金與尾款'), findsOneWidget);
       expect(find.text('待付尾款'), findsOneWidget);
       expect(find.textContaining('原廠延後出貨'), findsOneWidget);
+      // Phase 5：出貨單（合併寄送、測試門市、等待尾款）
+      expect(find.textContaining('超商取貨 · 準備中（等待支付尾款）'), findsOneWidget);
+      expect(find.textContaining('測試門市・台北信義（測試門市）'), findsOneWidget);
+      expect(find.textContaining('與另外 1 張訂單一起寄送'), findsOneWidget);
       expect(find.textContaining('訂金 · '), findsOneWidget);
       final pay = find.textContaining('建立尾款模擬付款');
       expect(pay, findsOneWidget);
