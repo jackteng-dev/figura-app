@@ -1,5 +1,15 @@
 # Shop_app 交接
 
+
+## 2026-11-18：Phase 3 統一購物車與結帳
+
+分支 `feat/unified-cart`（疊在 `feat/order-center` 上）。需要後端 `feat/unified-cart`（V21）。
+
+- 預購批次頁新增「加入購物車」（登入後），保留「直接預購下單」。
+- 購物車分現貨與預購兩區（預購可增減／移除、顯示批次、預估到貨與剩餘名額），合計使用 `totalTwd`，`checkoutReady` 才能結帳。
+- 結帳（`/checkout/stock` 路由沿用）改讀 `checkout/quote` 分組顯示，下單 `POST /mobile/customer/checkout`（`expectedTotalTwd`），一張訂單到詳情、多張到訂單中心；未確認操作重試也處理多張回應；購物車寫入的核對清單包含預購。
+- 測試：`test/unified_cart_test.dart`（混合購物車、分組、送出內容不含舊欄位、多張導向訂單中心、不呼叫舊下單 API）；`flutter analyze` 無問題、`flutter test` 26 通過（2 項 live 預設略過）；live socket（本機後端、私有可拋棄 fixture `work/live-fixture-p3.json`）2 項通過，含真實統一結帳。
+
 ## 2026-11-18：Phase 2 統一訂單中心
 
 分支 `feat/order-center`（疊在 `feat/contact-only-login` 上），需要後端 `feat/order-center`。
