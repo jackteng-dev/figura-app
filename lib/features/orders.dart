@@ -380,6 +380,7 @@ const _shipmentStatus = {
   'CANCELLED': '已取消',
 };
 const _waiting = {
+  'FEE': '運費待店長確認',
   'PAYMENT': '等待付款',
   'BALANCE': '等待支付尾款',
   'ARRIVAL': '等待預購到貨',

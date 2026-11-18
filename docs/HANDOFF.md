@@ -1,6 +1,10 @@
 # Shop_app 交接
 
 
+## 2026-11-18：Phase 5 配送
+
+分支 `feat/shipping`。需要後端 V23。結帳（購物車）可選宅配／超商取貨（測試門市）、分開寄／一起寄，切換時重新向伺服器報價，送出帶配送欄位；訂單詳情新增「配送」卡（方式、狀態、門市或地址、包裹運費、合併寄送、測試貨件號）。`flutter analyze` 無問題、`flutter test` 27 通過（2 項 live 略過）；`unified_cart_test` 涵蓋超商＋一起寄，`preorder_deposit_test` 涵蓋配送卡。
+
 ## 2026-11-18：Phase 4 預購訂金／尾款、延期
 
 分支 `feat/preorder-deposit`。需要後端 V22。批次頁顯示付款方式；直接預購與統一結帳顯示訂金／尾款；預購詳情新增「訂金與尾款」卡、到貨時程異動、付款按鈕標示訂金或尾款與金額（金額由伺服器決定）；訂單列表待付尾款提示（已退款不提示）。`test/preorder_deposit_test.dart`；`flutter analyze` 無問題、`flutter test` 27 通過（2 項 live 略過）。
