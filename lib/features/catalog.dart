@@ -174,15 +174,45 @@ class BatchScreen extends ConsumerWidget {
               '預估到貨 ${dateLabel(j['arrivalFrom'])} ～ ${dateLabel(j['arrivalTo'])}',
             ),
             const SizedBox(height: 16),
-            FilledButton(
-              onPressed: j['orderingEnabled'] == true
-                  ? () => context.push(
-                      ref.read(apiProvider).signedIn
-                          ? '/checkout/preorder/$id'
-                          : '/login',
-                    )
-                  : null,
-              child: const Text('預購結帳'),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (ref.watch(apiProvider).signedIn)
+                  WriteButton(
+                    label: '加入購物車',
+                    enabled: j['orderingEnabled'] == true,
+                    action: () async {
+                      final api = ref.read(apiProvider),
+                          writes = ref.read(writesProvider);
+                      final cart = object(await api.request('GET', 'cart'));
+                      final existing = objects(cart['preorders'])
+                          .where((v) => v['batchId'] == id);
+                      final qty = existing.isEmpty
+                          ? 1
+                          : (existing.first['quantity'] as int) + 1;
+                      if (qty > 100) {
+                        if (context.mounted) message(context, '同一批次最多 100 件');
+                        return;
+                      }
+                      await writes.run('PUT', 'cart/preorders/$id', {
+                        'quantity': qty,
+                        'expectedVersion': cart['version'],
+                      });
+                      if (context.mounted) message(context, '已加入購物車');
+                    },
+                  ),
+                FilledButton(
+                  onPressed: j['orderingEnabled'] == true
+                      ? () => context.push(
+                          ref.read(apiProvider).signedIn
+                              ? '/checkout/preorder/$id'
+                              : '/login',
+                        )
+                      : null,
+                  child: const Text('直接預購下單'),
+                ),
+              ],
             ),
           ]),
           const Text('預購名額獨立於現貨庫存。到貨日期為預估時間。'),

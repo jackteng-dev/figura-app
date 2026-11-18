@@ -255,6 +255,15 @@ class PendingBanner extends ConsumerWidget {
                               context.go(
                                 '/orders/${preorder ? 'preorder' : 'stock'}/${result['order']['id']}',
                               );
+                            } else if (result is Map &&
+                                result['orders'] is List) {
+                              // 統一結帳：一張直接到詳情，多張到訂單中心
+                              final placed = result['orders'] as List;
+                              context.go(
+                                placed.length == 1
+                                    ? '/orders/${placed.first['kind'] == 'PREORDER' ? 'preorder' : 'stock'}/${placed.first['id']}'
+                                    : '/orders',
+                              );
                             }
                           }
                         } catch (e) {
