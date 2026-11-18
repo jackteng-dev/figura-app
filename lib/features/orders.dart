@@ -184,6 +184,8 @@ class OrderScreen extends ConsumerWidget {
                 Text(
                   j['status'] == 'REFUNDED'
                       ? '已退款'
+                      : j['status'] == 'CANCELLED' || j['status'] == 'EXPIRED'
+                      ? '未付款，訂單已結束'
                       : const {
                               'NOT_DUE': '訂金付款後，到貨時通知支付尾款',
                               'DUE': '待付尾款',

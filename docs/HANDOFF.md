@@ -1,6 +1,10 @@
 # Shop_app 交接
 
 
+## 2026-11-18：Phase 4 預購訂金／尾款、延期
+
+分支 `feat/preorder-deposit`。需要後端 V22。批次頁顯示付款方式；直接預購與統一結帳顯示訂金／尾款；預購詳情新增「訂金與尾款」卡、到貨時程異動、付款按鈕標示訂金或尾款與金額（金額由伺服器決定）；訂單列表待付尾款提示（已退款不提示）。`test/preorder_deposit_test.dart`；`flutter analyze` 無問題、`flutter test` 27 通過（2 項 live 略過）。
+
 ## 2026-11-18：Phase 3 統一購物車與結帳
 
 分支 `feat/unified-cart`（疊在 `feat/order-center` 上）。需要後端 `feat/unified-cart`（V21）。
