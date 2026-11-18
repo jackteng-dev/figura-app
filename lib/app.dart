@@ -179,7 +179,8 @@ class ShopShell extends ConsumerWidget {
             padding: const EdgeInsets.only(right: 16),
             child: Center(
               child: Text(
-                api.signedIn ? '${api.customer!['displayName']}' : '收藏品商店',
+                // 不顯示系統自動產生的帳號名稱／暱稱
+                api.signedIn ? '會員中心' : '收藏品商店',
               ),
             ),
           ),
@@ -288,7 +289,8 @@ class PendingBanner extends ConsumerWidget {
                                     .map((a) => Address(a).label)
                                     .join('\n')
                               : resource == 'me'
-                              ? '${data['displayName']}'
+                              // 舊版 App 留下的「修改暱稱」待核對操作：暱稱已停用，顯示目前會員資料供核對後解除
+                              ? '暱稱功能已停用，這筆修改不會再送出。\nEmail：${data['email'] ?? '未設定'}\n手機：${data['phone'] ?? '未設定'}'
                               : statusLabel(data['status']);
                           final confirmed = await showDialog<bool>(
                             context: context,

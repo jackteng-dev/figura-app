@@ -40,7 +40,7 @@ void main() {
       expect(tester.takeException(), null);
       await tester.tap(find.text('登入'));
       await tester.pumpAndSettle();
-      expect(find.text('帳號需為 3–32 個英數或底線'), findsOneWidget);
+      expect(find.text('請輸入 09 開頭的手機號碼或有效的 Email'), findsOneWidget);
       expect(find.text('請填寫密碼'), findsOneWidget);
     },
   );
@@ -100,7 +100,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('會員'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField).at(0), 'member');
+      await tester.enterText(find.byType(TextFormField).at(0), '0912345678');
       await tester.enterText(
         find.byType(TextFormField).at(1),
         'synthetic-password',

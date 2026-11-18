@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/api.dart';
+import '../core/identity.dart';
 import '../core/providers.dart';
 import 'common.dart';
 
@@ -15,15 +17,18 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
   final form = GlobalKey<FormState>();
-  final username = TextEditingController(),
-      password = TextEditingController(),
-      name = TextEditingController();
+  // 登入：identifier 為手機或 Email。註冊：phone＋email＋password（不再有帳號名稱與暱稱）。
+  final identifier = TextEditingController(),
+      phone = TextEditingController(),
+      email = TextEditingController(),
+      password = TextEditingController();
   bool registering = false, busy = false;
   @override
   void dispose() {
-    username.dispose();
+    identifier.dispose();
+    phone.dispose();
+    email.dispose();
     password.dispose();
-    name.dispose();
     super.dispose();
   }
 
@@ -32,15 +37,29 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => busy = true);
     try {
       final api = ref.read(apiProvider);
+      String loginId;
       if (registering) {
+        final mail = normalizeEmail(email.text)!;
         await api.register(
-          username.text.trim(),
-          password.text,
-          name.text.trim(),
+          email: mail,
+          phone: normalizePhone(phone.text)!,
+          password: password.text,
         );
-        if (mounted) setState(() => registering = false);
+        if (mounted) {
+          setState(() => registering = false);
+          identifier.text = mail;
+        }
+        loginId = mail;
+      } else {
+        loginId = normalizeLoginId(identifier.text)!;
       }
-      await api.login(username.text.trim(), password.text);
+      try {
+        await api.login(loginId, password.text);
+      } on ShopError catch (e) {
+        // 不透露帳號是否存在
+        if (e.status == 401) throw ShopError('手機／Email 或密碼不正確', status: 401);
+        rethrow;
+      }
       password.clear();
       await ref.read(writesProvider).restore();
       if (mounted) context.go('/products');
@@ -69,14 +88,31 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            field(
-              username,
-              '帳號',
-              validator: (v) =>
-                  RegExp(r'^[A-Za-z0-9_]{3,32}$').hasMatch(v?.trim() ?? '')
-                  ? null
-                  : '帳號需為 3–32 個英數或底線',
-            ),
+            if (!registering)
+              field(
+                identifier,
+                '手機或 Email',
+                keyboard: TextInputType.emailAddress,
+                validator: (v) => normalizeLoginId(v) == null
+                    ? '請輸入 09 開頭的手機號碼或有效的 Email'
+                    : null,
+              ),
+            if (registering) ...[
+              field(
+                phone,
+                '手機號碼',
+                keyboard: TextInputType.phone,
+                validator: (v) =>
+                    normalizePhone(v) == null ? '請輸入 09 開頭的 10 碼手機' : null,
+              ),
+              field(
+                email,
+                'Email',
+                keyboard: TextInputType.emailAddress,
+                validator: (v) =>
+                    normalizeEmail(v) == null ? 'Email 格式不正確' : null,
+              ),
+            ],
             field(
               password,
               '密碼',
@@ -89,15 +125,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   ? '密碼至少 12 字元'
                   : null,
             ),
-            if (registering)
-              field(
-                name,
-                '顯示名稱',
-                validator: (v) =>
-                    v == null || v.trim().isEmpty || v.trim().length > 80
-                    ? '請填寫 1–80 字的名稱'
-                    : null,
-              ),
             FilledButton(
               onPressed: busy ? null : submit,
               child: Text(
@@ -121,44 +148,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   );
 }
 
-class AccountScreen extends ConsumerStatefulWidget {
+class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
-  @override
-  ConsumerState<AccountScreen> createState() => _AccountScreenState();
-}
-
-class _AccountScreenState extends ConsumerState<AccountScreen> {
-  final name = TextEditingController();
-  @override
-  void dispose() {
-    name.dispose();
-    super.dispose();
-  }
 
   @override
-  Widget build(BuildContext context) => RequestView(
+  Widget build(BuildContext context, WidgetRef ref) => RequestView(
     load: () => ref.read(apiProvider).request('GET', 'me'),
     render: (data, reload) {
+      final mail = data['email'] as String?, mobile = data['phone'] as String?;
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          infoCard('我的帳戶', [
-            Text('${data['displayName']}'),
-            Text('@${data['username']}'),
+          infoCard('會員資料', [
+            Text('Email：${mail ?? '未設定'}'),
+            if (mail != null)
+              // Email 驗證信目前為測試環境模擬、不會真的寄出：只顯示狀態，不要求去收信
+              Text(data['emailVerified'] == true ? 'Email 已驗證' : 'Email 尚未驗證'),
+            Text('手機：${mobile ?? '未設定'}'),
           ]),
-          field(name, '新的顯示名稱'),
-          WriteButton(
-            label: '更新名稱',
-            action: () async {
-              if (name.text.trim().isEmpty || name.text.trim().length > 80) {
-                return;
-              }
-              await ref.read(writesProvider).run('PATCH', 'me', {
-                'displayName': name.text.trim(),
-              });
-              reload();
-            },
-          ),
           const SizedBox(height: 20),
           OutlinedButton(
             onPressed: () => context.push('/addresses'),

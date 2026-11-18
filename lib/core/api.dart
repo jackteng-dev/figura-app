@@ -11,7 +11,10 @@ class ShopError implements Exception {
   final String message;
   final int? status;
   final bool uncertain;
-  ShopError(this.message, {this.status, this.uncertain = false});
+
+  /// 伺服器回傳的說明文字（只在註冊等需要告訴使用者具體原因時採用）。
+  final String? detail;
+  ShopError(this.message, {this.status, this.uncertain = false, this.detail});
   @override
   String toString() => message;
 }
@@ -86,6 +89,10 @@ class ShopApi extends ChangeNotifier {
       return envelope['data'];
     } on DioException catch (e) {
       final status = e.response?.statusCode;
+      final data = e.response?.data;
+      final detail = data is Map && data['message'] is String
+          ? data['message'] as String
+          : null;
       // A lost response or 5xx may follow a committed transaction.
       throw ShopError(
         status == 401
@@ -101,6 +108,7 @@ class ShopApi extends ChangeNotifier {
             : '連線失敗，請稍後重試',
         status: status,
         uncertain: status == null || status >= 500,
+        detail: detail,
       );
     }
   }
@@ -133,23 +141,29 @@ class ShopApi extends ChangeNotifier {
     }
   }
 
-  Future<void> register(
-    String username,
-    String password,
-    String displayName,
-  ) async {
-    await _raw(
-      'POST',
-      'mobile/customer/auth/register',
-      body: {
-        'username': username,
-        'password': password,
-        'displayName': displayName,
-      },
-    );
+  /// 註冊：手機＋Email＋密碼（後端已停用帳號名稱與暱稱）。註冊不會自動登入。
+  Future<void> register({
+    required String email,
+    required String phone,
+    required String password,
+  }) async {
+    try {
+      await _raw(
+        'POST',
+        'mobile/customer/auth/register',
+        body: {'email': email, 'phone': phone, 'password': password},
+      );
+    } on ShopError catch (e) {
+      // 400／409（格式、Email 或手機已被使用）採用伺服器說明；其他維持原本的通用訊息
+      if ((e.status == 400 || e.status == 409) && e.detail != null) {
+        throw ShopError(e.detail!, status: e.status);
+      }
+      rethrow;
+    }
   }
 
-  Future<void> login(String username, String password) async {
+  /// 登入：[identifier] 為手機或 Email。後端欄位名稱沿用 `username`。
+  Future<void> login(String identifier, String password) async {
     final generation = ++_generation;
     var device = await store.read('device_id');
     device ??= const Uuid().v4();
@@ -159,7 +173,7 @@ class ShopApi extends ChangeNotifier {
         'POST',
         'mobile/customer/auth/login',
         body: {
-          'username': username,
+          'username': identifier,
           'password': password,
           'deviceId': device,
           'rememberMe': false,

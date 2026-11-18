@@ -102,8 +102,56 @@ void main() {
       true,
     );
     await api.refresh();
-    expect(object(await api.request('GET', 'me'))['username'], username);
+    // APP_TEST_USERNAME 是登入識別（Email）
+    expect(object(await api.request('GET', 'me'))['email'], username);
     await api.logout();
     expect(api.signedIn, false);
+  }, skip: base.isEmpty ? 'Requires private disposable live fixture' : false);
+
+  test('real phone+email registration, login by email or phone, refresh, logout', () async {
+    final store = MemoryStore();
+    final api = ShopApi(store: store, baseUrl: base, development: true);
+    final tag = const Uuid().v4().replaceAll('-', '').substring(0, 16);
+    final email = 'app_$tag@example.test';
+    final phone =
+        '09${(DateTime.now().microsecondsSinceEpoch % 100000000).toString().padLeft(8, '0')}';
+    final password = 'App-${const Uuid().v4()}';
+    await api.register(email: email, phone: phone, password: password);
+    // 同一 Email 再註冊：伺服器說明重複，不是「結果未知」
+    await expectLater(
+      api.register(email: email, phone: phone, password: password),
+      throwsA(isA<ShopError>().having((e) => e.status, 'status', 409)),
+    );
+    await api.login(email.toUpperCase(), password);
+    final me = object(await api.request('GET', 'me'));
+    expect(me['email'], email);
+    expect(me['phone'], phone);
+    expect(me['emailVerified'], false);
+    final firstRefresh = await store.read('refresh_token');
+    await api.refresh();
+    expect(await store.read('refresh_token'), isNot(firstRefresh));
+    expect(object(await api.request('GET', 'me'))['email'], email);
+    // 暱稱修改已停用
+    await expectLater(
+      api.request('PATCH', 'me', body: {'displayName': 'x'}),
+      throwsA(isA<ShopError>().having((e) => e.status, 'status', 403)),
+    );
+    await api.logout();
+    expect(api.signedIn, false);
+    expect(await store.read('refresh_token'), null);
+    // 重新登入（用手機）
+    await api.login(phone, password);
+    expect(object(await api.request('GET', 'me'))['phone'], phone);
+    // 系統產生的內部帳號名稱不能登入
+    final other = ShopApi(
+      store: MemoryStore(),
+      baseUrl: base,
+      development: true,
+    );
+    await expectLater(
+      other.login(me['username'] as String, password),
+      throwsA(isA<ShopError>().having((e) => e.status, 'status', 401)),
+    );
+    await api.logout();
   }, skip: base.isEmpty ? 'Requires private disposable live fixture' : false);
 }

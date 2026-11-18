@@ -222,9 +222,15 @@ class OrderScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${statusLabel(p['status'])} · ${twd(p['amountTwd'])}',
+                        '${p['provider'] == 'ECPAY' ? '綠界測試信用卡 · ' : ''}${statusLabel(p['status'])} · ${twd(p['amountTwd'])}',
                       ),
-                      if (p['status'] == 'INITIATED' &&
+                      // 綠界（網站建立）的付款不能在 App 模擬，結果以伺服器收到的綠界通知為準
+                      if (p['provider'] == 'ECPAY' &&
+                          p['status'] == 'INITIATED')
+                        const Text('此筆為網站發起的綠界測試付款，請在網站完成或等待結果。'),
+                      // 舊版或預購付款沒有 provider 欄位，一律視為模擬付款
+                      if ((p['provider'] ?? 'MOCK') == 'MOCK' &&
+                          p['status'] == 'INITIATED' &&
                           options['enabled'] == true)
                         Wrap(
                           spacing: 8,

@@ -1,5 +1,18 @@
 # Shop_app 交接
 
+## 2026-11-18：配合後端「只用手機＋Email」（contact-only-login）
+
+分支 `feat/contact-only-login`，需與 figura-api `feat/contact-only-login`（jackteng-dev/figura-api#10）一起上線；**App 先上或同時上**，否則舊版 App 註冊與修改暱稱會失敗。
+
+- **註冊**：手機＋Email＋密碼（移除帳號名稱與顯示名稱）；註冊後以 Email 自動登入。400／409 顯示伺服器說明（例如 Email／手機已被使用），5xx／斷線維持通用訊息。
+- **登入**：欄位「手機或 Email」；`lib/core/identity.dart` 的手機／Email 正規化與後端 `CustomerPayloads` 規則一致，送出正規化值；401 一律「手機／Email 或密碼不正確」。
+- **會員中心**：顯示 Email、驗證狀態、手機；移除修改暱稱；頁首顯示「會員中心」，不顯示系統產生的 `username`／`displayName`。驗證信目前為測試環境模擬、不會真的寄出，所以只顯示狀態。
+- **舊版殘留**：升級前留下的「修改暱稱」待核對操作只能重讀核對後解除，不會再送 PATCH。
+- **綠界**：付款清單 `provider=ECPAY`（網站發起的綠界測試付款）在 App 只顯示、不提供模擬成功／失敗（後端也會拒絕）。
+- **不變**：Bearer／refresh 輪替／secure storage／pending UUID 機制、`storage.dart`、`Writes` 未改；`pubspec.lock` 未變。
+- **測試（本機 Windows，Flutter 3.47.6 同 CI 釘選 commit，SDK 在忽略的 `work/flutter`）**：`dart format` 無變更；`flutter analyze` 0 issue；`flutter test` 24 通過、2 個 opt-in live 測試 skip（新增 `test/contact_login_test.dart` 11 項）。對本機隔離後端（figura-api `feat/buy-now` 建置＝含 contact-only-login，隔離 demo DB）：`live_socket_test` 2 項通過（新增「手機＋Email 註冊、重複 409、Email 大寫登入、refresh 輪替、修改暱稱 403、登出清除 refresh、手機重新登入、內部帳號名稱 401」，原有購物／預購／付款流程）；debug browser harness `smoke_browser.cjs` 11 項 UI 通過；`flutter build web --release` 成功。
+- **未做**：本機沒有 Android SDK，**未建置 APK、未跑 Android 模擬器／原生 `verify_android.py`**（已改用新欄位，未實跑）；iOS 未驗證。本 repo 沒有 PR 自動 CI（只有手動、會發布 sandbox APK 的 workflow，未觸發）。
+
 更新：2026-10-08。獨立私人 Flutter 顧客 App 第一版已完成；本輪完成 Android 模擬器原生核心驗收與可安裝測試 APK 0.1.1+2，補商家正式簽章設定及 iOS Keychain entitlement。仍共用 shop_bak_ap 後端；Shop_back Vue 網站及員工後台保留。實體手機、iOS build、商家正式簽章／上架與正式營業尚未完成。
 
 ## 已實作的顧客流程

@@ -39,7 +39,9 @@ def main():
                    help='Resume UI checks using matching safe evidence from completed core phases')
     a = p.parse_args()
     fixture = json.loads(Path(a.fixture).read_text())
-    fixture.update(OTHER_USERNAME='dev_' + secrets.token_hex(10),
+    # 後端只接受手機＋Email 註冊；APP_TEST_USERNAME 是 Email（smoke_mobile.py 產生）
+    fixture.update(OTHER_EMAIL='dev_' + secrets.token_hex(10) + '@example.test',
+                   OTHER_PHONE='09%08d' % secrets.randbelow(10**8),
                    OTHER_PASSWORD=secrets.token_urlsafe(24))
     state = {'phase': '', 'result': None, 'checks': [], 'requests': [],
              'secrets': [], 'dropped_order': False, 'dropped_cart': False,
@@ -240,17 +242,17 @@ def main():
         state['phase'] = 'production'
         launch()
         tap('會員')
-        find('@' + fixture['APP_TEST_USERNAME'])
+        find('Email：' + fixture['APP_TEST_USERNAME'])
         check('production APK upgrade restores native session in real account UI', True)
         pid = adb('shell', 'pidof', package).strip()
         adb('shell', 'input', 'keyevent', 'KEYCODE_HOME')
         launch()
-        find('@' + fixture['APP_TEST_USERNAME'])
+        find('Email：' + fixture['APP_TEST_USERNAME'])
         check('background return keeps the running account session', pid == adb('shell', 'pidof', package).strip())
         adb('shell', 'am', 'force-stop', package)
         launch()
         tap('會員')
-        find('@' + fixture['APP_TEST_USERNAME'])
+        find('Email：' + fixture['APP_TEST_USERNAME'])
         check('production process restart restores account from native secure storage', True)
         tap('登出此裝置')
         find('收藏，從這裡開始。')
