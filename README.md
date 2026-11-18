@@ -56,7 +56,7 @@ Dio 存取公開 `catalog` 與 Bearer 驗證的 `mobile/customer` 路由；正�
 
 - 依[交接文件](docs/HANDOFF.md)紀錄：format、analyze 通過，unit／widget 測試 13 項通過，另 1 項 live socket 測試預設略過；此為文件中的既有結果。
 - 同份文件記錄 Android 模擬器原生核心驗收 4 階段、手動畫面與生命週期檢查 8 項通過；完整 UI 自動化仍未通過。
-- 現有 GitHub Actions 為手動觸發的 [Android test APK](.github/workflows/android-test-apk.yml)：固定 Flutter 版本、format → analyze → test → debug APK，產生校驗碼與 artifact，並嘗試附加至既有私人草稿 Release。
+- GitHub Actions [Android sandbox APK](.github/workflows/android-sandbox-apk.yml)：固定 Flutter 版本、format → analyze → test → 以沙盒示範金鑰簽章的 release APK，產生校驗碼並保留 14 天 artifact。**main 的 `lib/`、`android/`、`pubspec.*` 或 workflow 變更會自動執行，並覆蓋公開的 `sandbox-latest` Release**；在其他分支手動執行只留 artifact、不發布。本 repo 沒有 PR 自動 CI。
 - 本倉庫沒有名為 `verify` 的工作流程，也沒有 PR → CI → 私有 GHCR 映像 → 自架伺服器拉取式 CD 的設定；目前交付形式為 Android 測試 APK。
 
 ## 本機啟動
