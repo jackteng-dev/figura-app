@@ -101,6 +101,52 @@ void main() {
           .any((o) => o['id'] == pre['id']),
       true,
     );
+    // 統一訂單中心：同一個列表看得到剛建立的現貨與預購訂單
+    final center = object(
+      await api.request(
+        'GET',
+        'order-center?kind=ALL&stage=ALL&sort=NEWEST&page=1&pageSize=50',
+      ),
+    );
+    final centerIds = objects(center['items']).map((o) => o['id']).toSet();
+    expect(centerIds.containsAll({stock['id'], pre['id']}), true);
+    expect(
+      objects(
+        object(
+          await api.request('GET', 'order-center?kind=PREORDER&page=1'),
+        )['items'],
+      ).every((o) => o['kind'] == 'PREORDER'),
+      true,
+    );
+    // 統一購物車：現貨＋預購同一購物車，一次結帳拆成兩張訂單
+    var mixed = object(await api.request('GET', 'cart'));
+    await writes.run('PUT', 'cart/items/$sku', {
+      'expectedVersion': mixed['version'],
+      'quantity': 1,
+    });
+    mixed = object(await api.request('GET', 'cart'));
+    await writes.run('PUT', 'cart/preorders/$batch', {
+      'expectedVersion': mixed['version'],
+      'quantity': 1,
+    });
+    final quote = object(await api.request('GET', 'checkout/quote'));
+    expect(objects(quote['groups']).length, 2);
+    final placed = object(
+      await writes.run('POST', 'checkout', {
+        'requestId': const Uuid().v4(),
+        'cartVersion': quote['cartVersion'],
+        'addressId': addressId,
+        'addressVersion': address['version'],
+        'expectedTotalTwd': quote['totalTwd'],
+      }, replayable: true),
+    );
+    expect(objects(placed['orders']).map((o) => o['kind']).toSet(), {
+      'STOCK',
+      'PREORDER',
+    });
+    final emptied = object(await api.request('GET', 'cart'));
+    expect(objects(emptied['items']).isEmpty, true);
+    expect(objects(emptied['preorders']).isEmpty, true);
     await api.refresh();
     // APP_TEST_USERNAME 是登入識別（Email）
     expect(object(await api.request('GET', 'me'))['email'], username);
