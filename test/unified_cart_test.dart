@@ -19,6 +19,9 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
       Map<String, dynamic>? posted;
+      final quotes = <String>[];
+      var attempts = 0;
+      Map<String, dynamic>? firstBody;
       final adapter = Adapter((o) async {
         if (o.path.endsWith('auth/login')) {
           return response(200, tokens('a', 'r'));
@@ -63,7 +66,9 @@ void main() {
             'checkoutReady': true,
           });
         }
-        if (o.path == 'mobile/customer/checkout/quote') {
+        if (o.path.startsWith('mobile/customer/checkout/quote')) {
+          final combined = o.path.contains('deliveryStrategy=COMBINED');
+          quotes.add(o.path);
           return response(200, {
             'cartVersion': 4,
             'groups': [
@@ -114,9 +119,59 @@ void main() {
                 'ready': true,
               },
             ],
+            'subtotalTwd': 4880,
+            'shippingTwd': 0,
             'totalTwd': 4880,
             'ready': true,
+            'shippingMethod': 'HOME',
+            'deliveryStrategy': combined ? 'COMBINED' : 'SPLIT',
+            'shipments': [
+              {
+                'key': 'SHIPMENT:STOCK',
+                'groupKeys': ['STOCK'],
+                'carrierKey': 'STOCK',
+                'goodsTwd': 1280,
+                'feeTwd': 0,
+              },
+              {
+                'key': 'SHIPMENT:PREORDER:b1',
+                'groupKeys': ['PREORDER:b1'],
+                'carrierKey': 'PREORDER:b1',
+                'goodsTwd': 3600,
+                'feeTwd': 0,
+              },
+            ],
+            'methods': [
+              {
+                'code': 'HOME',
+                'name': '宅配到府',
+                'feeTwd': 120,
+                'freeThresholdTwd': 1000,
+                'enabled': true,
+                'version': 1,
+              },
+              {
+                'code': 'CVS',
+                'name': '超商取貨',
+                'feeTwd': 60,
+                'freeThresholdTwd': 1500,
+                'enabled': true,
+                'version': 1,
+              },
+            ],
+            'shippingAvailable': true,
           });
+        }
+        if (o.path == 'mobile/customer/checkout/pickup-stores') {
+          return response(200, [
+            {
+              'brand': 'SEVEN',
+              'brandName': '7-ELEVEN（測試）',
+              'storeId': 'TEST-711-001',
+              'storeName': '測試門市・台北信義',
+              'address': '台北市',
+            },
+          ]);
         }
         if (o.path == 'mobile/customer/addresses') {
           return response(200, [
@@ -133,6 +188,11 @@ void main() {
           ]);
         }
         if (o.path == 'mobile/customer/checkout' && o.method == 'POST') {
+          // 第一次送出結果未知（伺服器錯誤），之後以同一內容重試成功
+          if (attempts++ == 0) {
+            firstBody = jsonDecode(jsonEncode(o.data)) as Map<String, dynamic>;
+            return response(503, null);
+          }
           posted = jsonDecode(jsonEncode(o.data)) as Map<String, dynamic>;
           return response(200, {
             'groupId': 'g1',
@@ -202,13 +262,45 @@ void main() {
       expect(find.textContaining('這次結帳會拆成 2 張訂單'), findsOneWidget);
       expect(find.text('預購 · 秋季預購'), findsOneWidget);
       expect(find.text('現貨訂單'), findsOneWidget);
+      // 選超商取貨＋測試門市＋一起寄：報價帶參數重讀
+      await tester.tap(find.text('超商取貨'));
+      await tester.pumpAndSettle();
+      expect(quotes.last, contains('shippingMethod=CVS'));
+      await tester.tap(find.text('一起寄'));
+      await tester.pumpAndSettle();
+      expect(quotes.last, contains('deliveryStrategy=COMBINED'));
+      await tester.tap(find.byType(DropdownButtonFormField<String>).last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('測試門市・台北信義').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('建立訂單'));
       await tester.pumpAndSettle();
+      expect(firstBody, isNotNull);
+      expect(posted, isNull);
+      // 重新開啟結帳：顯示原操作的配送選擇與金額，配送選項凍結（點宅配不重新報價）
+      await tester.tap(find.text('購物車'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('確認結帳'));
+      await tester.pumpAndSettle();
+      expect(quotes.last, contains('shippingMethod=CVS'));
+      expect(quotes.last, contains('deliveryStrategy=COMBINED'));
+      expect(find.text('原操作應付金額'), findsOneWidget);
+      expect(find.text('商品小計'), findsNothing, reason: '不混用即時報價明細');
+      final before = quotes.length;
+      await tester.tap(find.text('宅配到府'));
+      await tester.pumpAndSettle();
+      expect(quotes.length, before);
+      await tester.tap(find.text('以原編號核對／重試'));
+      await tester.pumpAndSettle();
       expect(posted, isNotNull);
+      expect(posted, firstBody, reason: '重試送出原內容');
       expect(posted!['cartVersion'], 4);
       expect(posted!['expectedTotalTwd'], 4880);
       expect(posted!['addressId'], 'addr-1');
       expect(posted!.containsKey('expectedSubtotalTwd'), false);
+      expect(posted!['shippingMethod'], 'CVS');
+      expect(posted!['deliveryStrategy'], 'COMBINED');
+      expect(posted!['pickupStoreId'], 'TEST-711-001');
       // 多張訂單：導到統一訂單中心
       expect(
         adapter.requests.last.path,

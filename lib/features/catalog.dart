@@ -169,6 +169,11 @@ class BatchScreen extends ConsumerWidget {
             Text(j['description'] ?? ''),
             moneyRow('單價', j['priceTwd'], emphasis: true),
             Text('剩餘預購名額 ${j['availableQuota']}'),
+            Text(
+              j['paymentMode'] == 'DEPOSIT'
+                  ? '付款方式：訂金 ${twd(j['depositTwd'])}／件，到貨通知後 ${j['balanceDays']} 天內付尾款'
+                  : '付款方式：下單付清全額',
+            ),
             Text('截單 ${dateLabel(j['deadlineAt'])}'),
             Text(
               '預估到貨 ${dateLabel(j['arrivalFrom'])} ～ ${dateLabel(j['arrivalTo'])}',
