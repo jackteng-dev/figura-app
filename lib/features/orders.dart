@@ -224,6 +224,8 @@ class OrderScreen extends ConsumerWidget {
                         )
                         .toList(),
             ),
+            // Phase 5：出貨單（測試物流）
+            if (j['shipment'] != null) shipmentCard(object(j['shipment']), id),
             infoCard('收件資訊', [
               Text('${shipping['recipientName']} · ${shipping['phone']}'),
               Text(
@@ -368,4 +370,39 @@ class OrderScreen extends ConsumerWidget {
       },
     );
   }
+}
+
+const _shipmentStatus = {
+  'WAITING': '準備中',
+  'READY': '可出貨',
+  'SHIPPED': '已出貨（測試物流）',
+  'DELIVERED': '已送達（測試物流）',
+  'CANCELLED': '已取消',
+};
+const _waiting = {
+  'FEE': '運費待店長確認',
+  'PAYMENT': '等待付款',
+  'BALANCE': '等待支付尾款',
+  'ARRIVAL': '等待預購到貨',
+  'REVIEW': '付款待核對',
+};
+
+/// 訂單所屬出貨單：配送方式、目的地、合併寄送的其他訂單、測試貨件號。
+Widget shipmentCard(Json s, String orderId) {
+  final d = object(s['destination']);
+  final others = objects(s['orders']).where((o) => o['id'] != orderId).toList();
+  return infoCard('配送', [
+    Text(
+      '${s['methodName']} · ${_shipmentStatus[s['status']] ?? s['status']}${s['waitingFor'] != null ? '（${_waiting[s['waitingFor']] ?? s['waitingFor']}）' : ''}',
+    ),
+    if (d['type'] == 'CVS')
+      Text('取貨門市：${d['storeBrand']} ${d['storeName']}（測試門市）')
+    else
+      Text('寄送：${d['postalCode']} ${d['city']}${d['district']}${d['street']}'),
+    Text('收件人：${d['recipientName']} · ${d['phone']}'),
+    moneyRow('包裹運費', s['feeTwd']),
+    if (others.isNotEmpty) Text('與另外 ${others.length} 張訂單一起寄送，全部可出貨後才寄出'),
+    if (s['trackingNumber'] != null)
+      Text('測試貨件號 ${s['trackingNumber']}（沒有實際寄送）'),
+  ]);
 }
