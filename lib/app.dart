@@ -179,7 +179,8 @@ class ShopShell extends ConsumerWidget {
             padding: const EdgeInsets.only(right: 16),
             child: Center(
               child: Text(
-                api.signedIn ? '${api.customer!['displayName']}' : '收藏品商店',
+                // 不顯示系統自動產生的帳號名稱／暱稱
+                api.signedIn ? '會員中心' : '收藏品商店',
               ),
             ),
           ),
@@ -254,6 +255,15 @@ class PendingBanner extends ConsumerWidget {
                               context.go(
                                 '/orders/${preorder ? 'preorder' : 'stock'}/${result['order']['id']}',
                               );
+                            } else if (result is Map &&
+                                result['orders'] is List) {
+                              // 統一結帳：一張直接到詳情，多張到訂單中心
+                              final placed = result['orders'] as List;
+                              context.go(
+                                placed.length == 1
+                                    ? '/orders/${placed.first['kind'] == 'PREORDER' ? 'preorder' : 'stock'}/${placed.first['id']}'
+                                    : '/orders',
+                              );
                             }
                           }
                         } catch (e) {
@@ -278,17 +288,23 @@ class PendingBanner extends ConsumerWidget {
                               .request('GET', resource);
                           if (!context.mounted) return;
                           final summary = resource == 'cart'
-                              ? objects(data['items'])
-                                    .map(
-                                      (i) => '${i['title']} × ${i['quantity']}',
-                                    )
-                                    .join('\n')
+                              ? [
+                                  ...objects(data['items']).map(
+                                    (i) =>
+                                        '現貨 ${i['title']} × ${i['quantity']}',
+                                  ),
+                                  ...objects(data['preorders']).map(
+                                    (i) =>
+                                        '預購 ${i['title']}（${i['batchName']}）× ${i['quantity']}',
+                                  ),
+                                ].join('\n')
                               : resource == 'addresses'
                               ? objects(data)
                                     .map((a) => Address(a).label)
                                     .join('\n')
                               : resource == 'me'
-                              ? '${data['displayName']}'
+                              // 舊版 App 留下的「修改暱稱」待核對操作：暱稱已停用，顯示目前會員資料供核對後解除
+                              ? '暱稱功能已停用，這筆修改不會再送出。\nEmail：${data['email'] ?? '未設定'}\n手機：${data['phone'] ?? '未設定'}'
                               : statusLabel(data['status']);
                           final confirmed = await showDialog<bool>(
                             context: context,

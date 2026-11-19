@@ -9,13 +9,13 @@ App 與網站共用 [Figura API](https://github.com/jackteng-dev/figura-api)，�
 ## 展示
 
 - **Android 測試版 APK**：[下載 Figura-sandbox.apk](https://github.com/jackteng-dev/figura-app/releases/latest/download/Figura-sandbox.apk)（[版本頁](https://github.com/jackteng-dev/figura-app/releases/latest)），連線公開沙盒 [figura.jackteng.dev](https://figura.jackteng.dev)。資料皆為虛構，每天 04:00（台北時間）自動重置。
-  - 示範顧客：`demo_customer` / `figura-demo-customer`（也可自行註冊，請勿輸入真實個資）
+  - 示範顧客：Email `demo-customer@example.com` 或手機 `0900000000`，密碼 `figura-demo-customer`（也可用手機＋Email 自行註冊，請勿輸入真實個資）
   - 由 GitHub Actions 建置並以沙盒示範金鑰簽章，非商店版本；安裝時需允許安裝不明來源的應用程式。
 - 同一套後端的網站版與員工後台也可在[線上沙盒](https://figura.jackteng.dev)體驗。
 
 ## 主要功能
 
-- 會員註冊、登入、個人資料編輯與本裝置登出。
+- 會員以手機＋Email 註冊、手機或 Email 登入、會員資料查閱（Email 驗證狀態）與本裝置登出。
 - 現貨商品、款式與主圖瀏覽；預購批次、名額、截止時間及預估到貨區間查詢。
 - 購物車數量調整、商品移除，以及收件地址新增、編輯與刪除。
 - 現貨與整筆預購結帳、後端報價核對、模擬付款成功／失敗。
@@ -56,7 +56,7 @@ Dio 存取公開 `catalog` 與 Bearer 驗證的 `mobile/customer` 路由；正�
 
 - 依[交接文件](docs/HANDOFF.md)紀錄：format、analyze 通過，unit／widget 測試 13 項通過，另 1 項 live socket 測試預設略過；此為文件中的既有結果。
 - 同份文件記錄 Android 模擬器原生核心驗收 4 階段、手動畫面與生命週期檢查 8 項通過；完整 UI 自動化仍未通過。
-- 現有 GitHub Actions 為手動觸發的 [Android test APK](.github/workflows/android-test-apk.yml)：固定 Flutter 版本、format → analyze → test → debug APK，產生校驗碼與 artifact，並嘗試附加至既有私人草稿 Release。
+- GitHub Actions [Android sandbox APK](.github/workflows/android-sandbox-apk.yml)：固定 Flutter 版本、format → analyze → test → 以沙盒示範金鑰簽章的 release APK，產生校驗碼並保留 14 天 artifact。**main 的 `lib/`、`android/`、`pubspec.*` 或 workflow 變更會自動執行，並覆蓋公開的 `sandbox-latest` Release**；在其他分支手動執行只留 artifact、不發布。本 repo 沒有 PR 自動 CI。
 - 本倉庫沒有名為 `verify` 的工作流程，也沒有 PR → CI → 私有 GHCR 映像 → 自架伺服器拉取式 CD 的設定；目前交付形式為 Android 測試 APK。
 
 ## 本機啟動

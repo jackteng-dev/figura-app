@@ -159,7 +159,11 @@ Future<void> verify(Json f) async {
       jsonEncode(writes.pending?.toJson()) == await store.read('probe_pending'),
     );
     try {
-      await writes.run('PATCH', 'me', {'displayName': 'blocked'});
+      // 任何新寫入都要先被未確認操作擋下（不會送出）
+      await writes.run('PUT', 'cart/items/${f['APP_TEST_SKU']}', {
+        'expectedVersion': 0,
+        'quantity': 1,
+      });
       throw StateError('new write should be frozen');
     } on ShopError {
       check('unconfirmed order freezes new writes', writes.pending != null);
@@ -205,9 +209,13 @@ Future<void> verify(Json f) async {
       'versioned pending survives process death unchanged',
       jsonEncode(writes.pending?.toJson()) == await store.read('probe_pending'),
     );
-    await api.register(f['OTHER_USERNAME'], f['OTHER_PASSWORD'], '合成第二會員');
+    await api.register(
+      email: f['OTHER_EMAIL'],
+      phone: f['OTHER_PHONE'],
+      password: f['OTHER_PASSWORD'],
+    );
     await api.logout();
-    await api.login(f['OTHER_USERNAME'], f['OTHER_PASSWORD']);
+    await api.login(f['OTHER_EMAIL'], f['OTHER_PASSWORD']);
     await writes.restore();
     check(
       'another customer cannot restore original pending operation',

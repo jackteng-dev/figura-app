@@ -7,6 +7,27 @@ import '../core/models.dart';
 import '../core/providers.dart';
 import 'common.dart';
 
+/// 統一訂單中心（後端 /order-center）：現貨與預購同一個列表，伺服器端篩選、排序與全域分頁。
+/// 詳情、付款、取消等操作沿用原本的現貨／預購詳情畫面。
+const orderStages = {
+  'ALL': '全部狀態',
+  'PENDING_PAYMENT': '待付款',
+  'WAITING_ARRIVAL': '等待到貨',
+  'TO_SHIP': '待出貨',
+  'SHIPPED': '已出貨',
+  'COMPLETED': '已完成',
+  'RETURNING': '退貨處理中',
+  'CANCELLED': '已取消',
+  'REFUNDED': '已退款',
+  'REVIEW': '付款待核對',
+};
+const orderSorts = {
+  'NEWEST': '最新優先',
+  'OLDEST': '最舊優先',
+  'AMOUNT_DESC': '金額高到低',
+  'AMOUNT_ASC': '金額低到高',
+};
+
 class OrdersScreen extends ConsumerStatefulWidget {
   const OrdersScreen({super.key});
   @override
@@ -14,46 +35,91 @@ class OrdersScreen extends ConsumerStatefulWidget {
 }
 
 class _OrdersScreenState extends ConsumerState<OrdersScreen> {
-  bool preorder = false;
+  String kind = 'ALL', stage = 'ALL', sort = 'NEWEST';
   @override
   Widget build(BuildContext context) => Column(
     children: [
       Padding(
-        padding: const EdgeInsets.all(16),
-        child: SegmentedButton<bool>(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: SegmentedButton<String>(
           segments: const [
-            ButtonSegment(value: false, label: Text('現貨訂單')),
-            ButtonSegment(value: true, label: Text('預購訂單')),
+            ButtonSegment(value: 'ALL', label: Text('全部')),
+            ButtonSegment(value: 'STOCK', label: Text('現貨')),
+            ButtonSegment(value: 'PREORDER', label: Text('預購')),
           ],
-          selected: {preorder},
-          onSelectionChanged: (v) => setState(() => preorder = v.first),
+          selected: {kind},
+          onSelectionChanged: (v) => setState(() => kind = v.first),
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: stage,
+                items: [
+                  for (final e in orderStages.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
+                ],
+                onChanged: (v) => setState(() => stage = v ?? 'ALL'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                value: sort,
+                items: [
+                  for (final e in orderSorts.entries)
+                    DropdownMenuItem(value: e.key, child: Text(e.value)),
+                ],
+                onChanged: (v) => setState(() => sort = v ?? 'NEWEST'),
+              ),
+            ),
+          ],
         ),
       ),
       Expanded(
         child: PagedView(
-          key: ValueKey(preorder),
+          key: ValueKey('$kind/$stage/$sort'),
           load: (page) async => object(
             await ref
                 .read(apiProvider)
                 .request(
                   'GET',
-                  '${preorder ? 'preorders' : 'orders'}?page=$page&pageSize=10',
+                  'order-center?kind=$kind&stage=$stage&sort=$sort&page=$page&pageSize=10',
                 ),
           ),
-          empty: '目前沒有${preorder ? '預購' : '現貨'}訂單',
+          empty: '這個篩選條件沒有訂單',
           item: (j) {
-            final order = ShopOrder(j, preorder: preorder);
+            final preorder = j['kind'] == 'PREORDER';
+            final lines = (j['lineCount'] as num?)?.toInt() ?? 1;
+            final pending = j['stage'] == 'PENDING_PAYMENT';
             return Card(
               child: ListTile(
                 contentPadding: const EdgeInsets.all(16),
-                title: Text(order.title),
+                title: Text(
+                  '${preorder ? '預購訂單' : '現貨訂單'} · ${orderStages[j['stage']] ?? j['stage']}',
+                ),
                 subtitle: Text(
-                  '${statusLabel(order.status)} · ${twd(order.total)}\n${dateLabel(j['createdAt'])}\n${order.id}',
+                  [
+                    '${j['title'] ?? '訂單'}${lines > 1 ? ' 等 $lines 款' : ''} · 共 ${j['quantity']} 件',
+                    '${twd(j['totalTwd'])} · ${dateLabel(j['createdAt'])}',
+                    if (j['balanceStatus'] == 'DUE' && j['status'] == 'PAID')
+                      '訂金已付，待付尾款${j['balanceDueAt'] != null ? '（${dateLabel(j['balanceDueAt'])} 前）' : ''}'
+                    else if (pending && j['expiresAt'] != null)
+                      '請在 ${dateLabel(j['expiresAt'])} 前完成付款',
+                    if (preorder && j['arrivalFrom'] != null)
+                      '預計到貨 ${dateLabel(j['arrivalFrom'])} ～ ${dateLabel(j['arrivalTo'])}',
+                    if (j['paymentReviewRequired'] == true) '付款通知待人工核對',
+                  ].join('\n'),
                 ),
                 isThreeLine: true,
                 trailing: const Icon(Icons.chevron_right),
                 onTap: () => context.push(
-                  '/orders/${preorder ? 'preorder' : 'stock'}/${order.id}',
+                  '/orders/${preorder ? 'preorder' : 'stock'}/${j['id']}',
                 ),
               ),
             );
@@ -105,8 +171,35 @@ class OrderScreen extends ConsumerWidget {
               moneyRow('訂單合計', order.total, emphasis: true),
               Text('建立 ${dateLabel(j['createdAt'])}'),
               if (order.pending) Text('付款期限 ${dateLabel(j['expiresAt'])}'),
-              if (j['paidAt'] != null) Text('付款 ${dateLabel(j['paidAt'])}'),
+              if (j['paidAt'] != null)
+                Text(
+                  '${j['paymentMode'] == 'DEPOSIT' ? '訂金付款' : '付款'} ${dateLabel(j['paidAt'])}',
+                ),
             ]),
+            // Phase 4：訂金制預購（訂金確保名額，到貨通知後付尾款）
+            if (preorder && j['paymentMode'] == 'DEPOSIT')
+              infoCard('訂金與尾款', [
+                moneyRow('訂金', j['depositTwd']),
+                moneyRow('尾款', j['balanceTwd']),
+                Text(
+                  j['status'] == 'REFUNDED'
+                      ? '已退款'
+                      : j['status'] == 'CANCELLED' || j['status'] == 'EXPIRED'
+                      ? '未付款，訂單已結束'
+                      : const {
+                              'NOT_DUE': '訂金付款後，到貨時通知支付尾款',
+                              'DUE': '待付尾款',
+                              'PAID': '尾款已付清',
+                            }[j['balanceStatus']] ??
+                            '',
+                ),
+                if (j['balanceStatus'] == 'DUE' &&
+                    j['status'] == 'PAID' &&
+                    j['balanceDueAt'] != null)
+                  Text('尾款期限 ${dateLabel(j['balanceDueAt'])}'),
+                if (j['balancePaidAt'] != null)
+                  Text('尾款付款 ${dateLabel(j['balancePaidAt'])}'),
+              ]),
             infoCard(
               '商品快照',
               preorder
@@ -117,6 +210,11 @@ class OrderScreen extends ConsumerWidget {
                       Text(
                         '預估到貨 ${dateLabel(j['arrivalFrom'])} ～ ${dateLabel(j['arrivalTo'])}',
                       ),
+                      // 到貨時程異動（只有對外說明與前後日期）
+                      for (final s in objects(j['schedule']))
+                        Text(
+                          '${s['action'] == 'DELAY' ? '延期' : '調整'}：${dateLabel(s['arrivalFromBefore'])} ～ ${dateLabel(s['arrivalToBefore'])} → ${dateLabel(s['arrivalFromAfter'])} ～ ${dateLabel(s['arrivalToAfter'])}。${s['publicReason']}',
+                        ),
                     ]
                   : objects(j['items'])
                         .map<Widget>(
@@ -126,6 +224,8 @@ class OrderScreen extends ConsumerWidget {
                         )
                         .toList(),
             ),
+            // Phase 5：出貨單（測試物流）
+            if (j['shipment'] != null) shipmentCard(object(j['shipment']), id),
             infoCard('收件資訊', [
               Text('${shipping['recipientName']} · ${shipping['phone']}'),
               Text(
@@ -201,7 +301,13 @@ class OrderScreen extends ConsumerWidget {
               if (options['enabled'] != true) const Text('目前未開啟模擬付款'),
               if (options['canStart'] == true)
                 WriteButton(
-                  label: '建立模擬付款',
+                  label: preorder && j['payNowTwd'] != null
+                      ? '建立${j['balanceStatus'] == 'DUE' && j['status'] == 'PAID'
+                            ? '尾款'
+                            : j['paymentMode'] == 'DEPOSIT'
+                            ? '訂金'
+                            : ''}模擬付款（${twd(j['payNowTwd'])}）'
+                      : '建立模擬付款',
                   action: () async {
                     await ref.read(writesProvider).run(
                       'POST',
@@ -222,9 +328,15 @@ class OrderScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${statusLabel(p['status'])} · ${twd(p['amountTwd'])}',
+                        '${p['provider'] == 'ECPAY' ? '綠界測試信用卡 · ' : ''}${const {'DEPOSIT': '訂金 · ', 'BALANCE': '尾款 · '}[p['stage']] ?? ''}${statusLabel(p['status'])} · ${twd(p['amountTwd'])}',
                       ),
-                      if (p['status'] == 'INITIATED' &&
+                      // 綠界（網站建立）的付款不能在 App 模擬，結果以伺服器收到的綠界通知為準
+                      if (p['provider'] == 'ECPAY' &&
+                          p['status'] == 'INITIATED')
+                        const Text('此筆為網站發起的綠界測試付款，請在網站完成或等待結果。'),
+                      // 舊版或預購付款沒有 provider 欄位，一律視為模擬付款
+                      if ((p['provider'] ?? 'MOCK') == 'MOCK' &&
+                          p['status'] == 'INITIATED' &&
                           options['enabled'] == true)
                         Wrap(
                           spacing: 8,
@@ -258,4 +370,39 @@ class OrderScreen extends ConsumerWidget {
       },
     );
   }
+}
+
+const _shipmentStatus = {
+  'WAITING': '準備中',
+  'READY': '可出貨',
+  'SHIPPED': '已出貨（測試物流）',
+  'DELIVERED': '已送達（測試物流）',
+  'CANCELLED': '已取消',
+};
+const _waiting = {
+  'FEE': '運費待店長確認',
+  'PAYMENT': '等待付款',
+  'BALANCE': '等待支付尾款',
+  'ARRIVAL': '等待預購到貨',
+  'REVIEW': '付款待核對',
+};
+
+/// 訂單所屬出貨單：配送方式、目的地、合併寄送的其他訂單、測試貨件號。
+Widget shipmentCard(Json s, String orderId) {
+  final d = object(s['destination']);
+  final others = objects(s['orders']).where((o) => o['id'] != orderId).toList();
+  return infoCard('配送', [
+    Text(
+      '${s['methodName']} · ${_shipmentStatus[s['status']] ?? s['status']}${s['waitingFor'] != null ? '（${_waiting[s['waitingFor']] ?? s['waitingFor']}）' : ''}',
+    ),
+    if (d['type'] == 'CVS')
+      Text('取貨門市：${d['storeBrand']} ${d['storeName']}（測試門市）')
+    else
+      Text('寄送：${d['postalCode']} ${d['city']}${d['district']}${d['street']}'),
+    Text('收件人：${d['recipientName']} · ${d['phone']}'),
+    moneyRow('包裹運費', s['feeTwd']),
+    if (others.isNotEmpty) Text('與另外 ${others.length} 張訂單一起寄送，全部可出貨後才寄出'),
+    if (s['trackingNumber'] != null)
+      Text('測試貨件號 ${s['trackingNumber']}（沒有實際寄送）'),
+  ]);
 }

@@ -1,5 +1,44 @@
 # Shop_app 交接
 
+
+## 2026-11-18：Phase 5 配送
+
+分支 `feat/shipping`。需要後端 V23。結帳（購物車）可選宅配／超商取貨（測試門市）、分開寄／一起寄，切換時重新向伺服器報價，送出帶配送欄位；訂單詳情新增「配送」卡（方式、狀態、門市或地址、包裹運費、合併寄送、測試貨件號）。`flutter analyze` 無問題、`flutter test` 27 通過（2 項 live 略過）；`unified_cart_test` 涵蓋超商＋一起寄，`preorder_deposit_test` 涵蓋配送卡。
+
+## 2026-11-18：Phase 4 預購訂金／尾款、延期
+
+分支 `feat/preorder-deposit`。需要後端 V22。批次頁顯示付款方式；直接預購與統一結帳顯示訂金／尾款；預購詳情新增「訂金與尾款」卡、到貨時程異動、付款按鈕標示訂金或尾款與金額（金額由伺服器決定）；訂單列表待付尾款提示（已退款不提示）。`test/preorder_deposit_test.dart`；`flutter analyze` 無問題、`flutter test` 27 通過（2 項 live 略過）。
+
+## 2026-11-18：Phase 3 統一購物車與結帳
+
+分支 `feat/unified-cart`（疊在 `feat/order-center` 上）。需要後端 `feat/unified-cart`（V21）。
+
+- 預購批次頁新增「加入購物車」（登入後），保留「直接預購下單」。
+- 購物車分現貨與預購兩區（預購可增減／移除、顯示批次、預估到貨與剩餘名額），合計使用 `totalTwd`，`checkoutReady` 才能結帳。
+- 結帳（`/checkout/stock` 路由沿用）改讀 `checkout/quote` 分組顯示，下單 `POST /mobile/customer/checkout`（`expectedTotalTwd`），一張訂單到詳情、多張到訂單中心；未確認操作重試也處理多張回應；購物車寫入的核對清單包含預購。
+- 測試：`test/unified_cart_test.dart`（混合購物車、分組、送出內容不含舊欄位、多張導向訂單中心、不呼叫舊下單 API）；`flutter analyze` 無問題、`flutter test` 26 通過（2 項 live 預設略過）；live socket（本機後端、私有可拋棄 fixture `work/live-fixture-p3.json`）2 項通過，含真實統一結帳。
+
+## 2026-11-18：Phase 2 統一訂單中心
+
+分支 `feat/order-center`（疊在 `feat/contact-only-login` 上），需要後端 `feat/order-center`。
+
+- 「訂單」分頁改用 `order-center`：全部／現貨／預購切換、狀態與排序下拉，伺服器端分頁；卡片顯示「現貨訂單／預購訂單 · 階段」、標題、件數、金額、付款期限、預計到貨。點選仍進原本的現貨／預購詳情（付款、取消不變）。
+- 測試：`flutter analyze` 0 issue、`flutter test` 25 通過（新增 `order_center_test.dart`）；live 測試對本機後端通過（新增 order-center 檢查）；`smoke_browser.cjs` 改用新標題格式（未實跑）。
+
+## 2026-11-18：配合後端「只用手機＋Email」（contact-only-login）
+
+分支 `feat/contact-only-login`，需與 figura-api `feat/contact-only-login`（jackteng-dev/figura-api#10）一起上線；**App 先上或同時上**，否則舊版 App 註冊與修改暱稱會失敗。
+
+- **註冊**：手機＋Email＋密碼（移除帳號名稱與顯示名稱）；註冊後以 Email 自動登入。400／409 顯示伺服器說明（例如 Email／手機已被使用），5xx／斷線維持通用訊息。
+- **登入**：欄位「手機或 Email」；`lib/core/identity.dart` 的手機／Email 正規化與後端 `CustomerPayloads` 規則一致，送出正規化值；401 一律「手機／Email 或密碼不正確」。
+- **會員中心**：顯示 Email、驗證狀態、手機；移除修改暱稱；頁首顯示「會員中心」，不顯示系統產生的 `username`／`displayName`。驗證信目前為測試環境模擬、不會真的寄出，所以只顯示狀態。
+- **舊版殘留**：升級前留下的「修改暱稱」待核對操作只能重讀核對後解除，不會再送 PATCH。
+- **綠界**：付款清單 `provider=ECPAY`（網站發起的綠界測試付款）在 App 只顯示、不提供模擬成功／失敗（後端也會拒絕）。
+- **不變**：Bearer／refresh 輪替／secure storage／pending UUID 機制、`storage.dart`、`Writes` 未改；`pubspec.lock` 未變。
+- **測試（本機 Windows，Flutter 3.47.6 同 CI 釘選 commit，SDK 在忽略的 `work/flutter`）**：`dart format` 無變更；`flutter analyze` 0 issue；`flutter test` 24 通過、2 個 opt-in live 測試 skip（新增 `test/contact_login_test.dart` 11 項）。對本機隔離後端（figura-api `feat/buy-now` 建置＝含 contact-only-login，隔離 demo DB）：`live_socket_test` 2 項通過（新增「手機＋Email 註冊、重複 409、Email 大寫登入、refresh 輪替、修改暱稱 403、登出清除 refresh、手機重新登入、內部帳號名稱 401」，原有購物／預購／付款流程）；debug browser harness `smoke_browser.cjs` 11 項 UI 通過；`flutter build web --release` 成功。
+- **發布前檢查（同日）**：版本升到 `0.2.1+4`（公開 `sandbox-latest` 為 0.2.0+3）。在本分支手動執行 `android-sandbox-apk.yml`（run 44262631768）：Linux 上 format／analyze／test 通過、APK 建置成功、**publish 步驟 skipped**，`sandbox-latest` 未變（仍為 2026-11-10、59f041d）。Artifact 靜態檢查：SHA256 相符、package `dev.jackteng.figura`、versionCode 3→4、v2 簽章憑證與公開版相同（可覆蓋升級）、3 個 ABI、內建沙盒 API。新版 App 對目前 figura-api **main** 後端 live 測試也通過（註冊、409、Email 登入、refresh、登出、手機重新登入、購物），所以 App 可以先於後端上線。Release 說明與 README 示範帳號改為 Email `demo-customer@example.com`（需伺服器每日重置種子配合）。**APK 未安裝到任何裝置或模擬器。**
+- **未做**：本機沒有 Android SDK，**未建置 APK、未跑 Android 模擬器／原生 `verify_android.py`**（已改用新欄位，未實跑）；iOS 未驗證。本 repo 沒有 PR 自動 CI（只有手動、會發布 sandbox APK 的 workflow，未觸發）。
+
 更新：2026-10-08。獨立私人 Flutter 顧客 App 第一版已完成；本輪完成 Android 模擬器原生核心驗收與可安裝測試 APK 0.1.1+2，補商家正式簽章設定及 iOS Keychain entitlement。仍共用 shop_bak_ap 後端；Shop_back Vue 網站及員工後台保留。實體手機、iOS build、商家正式簽章／上架與正式營業尚未完成。
 
 ## 已實作的顧客流程

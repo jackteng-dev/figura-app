@@ -13,7 +13,9 @@ class CartScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => RequestView(
     load: () => ref.read(apiProvider).request('GET', 'cart'),
     render: (data, reload) {
-      final cart = object(data), items = objects(cart['items']);
+      final cart = object(data),
+          items = objects(cart['items']),
+          preorders = objects(cart['preorders']);
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -22,7 +24,12 @@ class CartScreen extends ConsumerWidget {
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          if (items.isEmpty) const Text('購物車還沒有商品'),
+          if (items.isEmpty && preorders.isEmpty) const Text('購物車還沒有商品'),
+          if (items.isNotEmpty && preorders.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text('現貨', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ...items.map(
             (line) => infoCard(line['title'], [
               Text(line['label']),
@@ -78,16 +85,93 @@ class CartScreen extends ConsumerWidget {
               moneyRow('小計', line['lineTotalTwd']),
             ]),
           ),
-          moneyRow('商品合計', cart['subtotalTwd'], emphasis: true),
+          if (preorders.isNotEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                '預購（結帳時每個批次各成一張訂單）',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          ...preorders.map(
+            (line) => infoCard('預購 · ${line['title']}', [
+              Text('批次：${line['batchName']} · ${line['label']}'),
+              Text(
+                '預估到貨 ${dateLabel(line['arrivalFrom'])} ～ ${dateLabel(line['arrivalTo'])}',
+              ),
+              moneyRow('單價', line['unitPriceTwd']),
+              Text('數量 ${line['quantity']} · 剩餘名額 ${line['availableQuota']}'),
+              if (line['issue'] != null)
+                Text(
+                  const {
+                        'UNAVAILABLE': '預購商品已下架',
+                        'CLOSED': '批次已截單或尚未開放',
+                        'EXPIRED': '已過預購截止時間',
+                        'INSUFFICIENT_QUOTA': '剩餘名額不足，請減少數量',
+                      }[line['issue']] ??
+                      '請重新核對商品',
+                ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final delta in [-1, 1])
+                    WriteButton(
+                      label: delta == -1 ? '減少一件' : '增加一件',
+                      enabled:
+                          (line['quantity'] as int) + delta >= 1 &&
+                          (line['quantity'] as int) + delta <= 100,
+                      action: () async {
+                        await ref.read(writesProvider).run(
+                          'PUT',
+                          'cart/preorders/${line['batchId']}',
+                          {
+                            'quantity': (line['quantity'] as int) + delta,
+                            'expectedVersion': cart['version'],
+                          },
+                        );
+                        reload();
+                      },
+                    ),
+                  WriteButton(
+                    label: '移除',
+                    action: () async {
+                      await ref
+                          .read(writesProvider)
+                          .run(
+                            'DELETE',
+                            'cart/preorders/${line['batchId']}?expectedVersion=${cart['version']}',
+                            {},
+                          );
+                      reload();
+                    },
+                  ),
+                ],
+              ),
+              moneyRow('小計', line['lineTotalTwd']),
+            ]),
+          ),
+          if (preorders.isNotEmpty) ...[
+            moneyRow('現貨小計', cart['subtotalTwd']),
+            moneyRow('預購小計', cart['preorderSubtotalTwd']),
+          ],
+          moneyRow(
+            '商品合計',
+            cart['totalTwd'] ?? cart['subtotalTwd'],
+            emphasis: true,
+          ),
           const SizedBox(height: 16),
           FilledButton(
-            onPressed: cart['ready'] == true && items.isNotEmpty
+            onPressed:
+                cart['checkoutReady'] == true &&
+                    (items.isNotEmpty || preorders.isNotEmpty)
                 ? () => context.push('/checkout/stock')
                 : null,
             child: const Text('確認結帳'),
           ),
           const SizedBox(height: 16),
-          const Text('購物車不保留庫存。建立訂單時會再次確認價格與可售數量。'),
+          const Text('購物車不保留庫存或預購名額。結帳時系統會自動拆成現貨訂單與各預購批次的訂單，並再次確認價格與數量。'),
         ],
       );
     },
@@ -280,17 +364,43 @@ class CheckoutScreen extends ConsumerStatefulWidget {
 class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
   String? selected;
   int quantity = 1;
+  // 配送（Phase 5，只用於購物車結帳）：方式、合併／分開寄、超商測試門市
+  String method = 'HOME', strategy = 'SPLIT';
+  String? store;
+  @override
+  void initState() {
+    super.initState();
+    // 有未確認的統一結帳：畫面顯示原操作的配送選擇（重試送出的就是這份內容）
+    final p = ref.read(writesProvider).pending;
+    if (widget.batchId == null && p != null && p.path == 'checkout') {
+      method = p.body['shippingMethod'] ?? 'HOME';
+      strategy = p.body['deliveryStrategy'] ?? 'SPLIT';
+      store = p.body['pickupStoreId'];
+    }
+  }
+
   @override
   Widget build(BuildContext context) => RequestView(
+    // 換配送方式或寄送方式就重新向伺服器報價
+    key: ValueKey('$method|$strategy'),
     load: () async {
       final api = ref.read(apiProvider);
       final values = await Future.wait([
         api.request('GET', 'addresses'),
         widget.batchId == null
-            ? api.request('GET', 'cart')
+            ? api.request(
+                'GET',
+                'checkout/quote?shippingMethod=$method&deliveryStrategy=$strategy',
+              )
             : api.publicGet('preorders/${widget.batchId}'),
+        if (widget.batchId == null)
+          api.request('GET', 'checkout/pickup-stores'),
       ]);
-      return {'addresses': values[0], 'purchase': values[1]};
+      return {
+        'addresses': values[0],
+        'purchase': values[1],
+        'stores': values.length > 2 ? values[2] : [],
+      };
     },
     render: (data, reload) {
       final addresses = objects(data['addresses']).map(Address.new).toList(),
@@ -299,18 +409,29 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
       final selectedAddress =
           addresses.where((a) => a.id == selected).firstOrNull ??
           addresses.firstOrNull;
+      final groups = preorder ? <Json>[] : objects(purchase['groups']);
       final subtotal = preorder
           ? (purchase['priceTwd'] as num) * quantity
-          : purchase['subtotalTwd'] as num;
+          : purchase['totalTwd'] as num;
       final valid = preorder
           ? purchase['orderingEnabled'] == true &&
                 quantity <= (purchase['availableQuota'] as int)
-          : purchase['ready'] == true && objects(purchase['items']).isNotEmpty;
+          : purchase['ready'] == true &&
+                groups.isNotEmpty &&
+                (method != 'CVS' || store != null);
+      final stores = objects(data['stores']);
+      // 有任何未確認寫入時凍結配送選擇；未確認的結帳顯示原操作金額
+      final pendingCheckout = ref.watch(writesProvider).pending;
+      final locked = pendingCheckout != null;
+      final restoring =
+          !preorder &&
+          pendingCheckout != null &&
+          pendingCheckout.path == 'checkout';
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text(
-            preorder ? '預購結帳' : '現貨結帳',
+            preorder ? '預購結帳' : '結帳',
             style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
@@ -333,15 +454,39 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               Text(
                 '預估到貨 ${dateLabel(purchase['arrivalFrom'])} ～ ${dateLabel(purchase['arrivalTo'])}',
               ),
-            ] else
-              ...objects(purchase['items']).map(
-                (j) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    '${j['title']} · ${j['label']} × ${j['quantity']} — ${twd(j['lineTotalTwd'])}',
+              if (purchase['paymentMode'] == 'DEPOSIT')
+                Text(
+                  '訂金制：現在付訂金 ${twd((purchase['depositTwd'] as num) * quantity)}，尾款到貨通知後 ${purchase['balanceDays']} 天內支付',
+                ),
+            ] else ...[
+              if (groups.length > 1)
+                Text('這次結帳會拆成 ${groups.length} 張訂單：現貨一張、每個預購批次各一張，各自付款與出貨。'),
+              for (final g in groups) ...[
+                const SizedBox(height: 8),
+                Text(
+                  g['kind'] == 'PREORDER' ? '預購 · ${g['title']}' : '現貨訂單',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  g['arrivalFrom'] != null
+                      ? '預估到貨 ${dateLabel(g['arrivalFrom'])} ～ ${dateLabel(g['arrivalTo'])}'
+                      : '付款後出貨',
+                ),
+                ...objects(g['lines']).map(
+                  (j) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      '${j['title']} · ${j['label']} × ${j['quantity']} — ${twd(j['lineTotalTwd'])}${j['issue'] != null ? '（無法下單）' : ''}',
+                    ),
                   ),
                 ),
-              ),
+                moneyRow('這張訂單', g['totalTwd']),
+                if ((g['payLaterTwd'] as num? ?? 0) > 0)
+                  Text(
+                    '訂金制：現在付 ${twd(g['payNowTwd'])}，尾款 ${twd(g['payLaterTwd'])} 到貨通知後支付',
+                  ),
+              ],
+            ],
           ]),
           infoCard('收件地址', [
             if (selectedAddress != null)
@@ -369,12 +514,96 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
               child: const Text('管理收件地址'),
             ),
           ]),
+          if (!preorder)
+            infoCard('配送方式', [
+              for (final m in objects(purchase['methods']))
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    method == m['code']
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_unchecked,
+                  ),
+                  title: Text('${m['name']}'),
+                  subtitle: Text(
+                    m['enabled'] == true
+                        ? '運費 ${twd(m['feeTwd'])}${m['freeThresholdTwd'] != null ? '，滿 ${twd(m['freeThresholdTwd'])} 免運' : ''}'
+                        : '暫停使用',
+                  ),
+                  enabled: m['enabled'] == true,
+                  onTap: locked
+                      ? null
+                      : () => setState(() {
+                          method = m['code'];
+                          if (method != 'CVS') store = null;
+                        }),
+                ),
+              if (method == 'CVS')
+                DropdownButtonFormField<String>(
+                  initialValue: store,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: '取貨門市（測試門市）'),
+                  items: stores
+                      .map(
+                        (s) => DropdownMenuItem(
+                          value: s['storeId'] as String,
+                          child: Text(
+                            '${s['brandName']} ${s['storeName']}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: locked ? null : (v) => setState(() => store = v),
+                ),
+              if (groups.length > 1) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  '寄送方式',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                for (final s in const [
+                  ['SPLIT', '分開寄', '現貨先寄，預購到貨再各自寄出（各自計運費）'],
+                  ['COMBINED', '一起寄', '全部到齊後一次寄出（只算一次運費）'],
+                ])
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      strategy == s[0]
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_unchecked,
+                    ),
+                    title: Text(s[1]),
+                    subtitle: Text(s[2]),
+                    onTap: locked
+                        ? null
+                        : () => setState(() => strategy = s[0]),
+                  ),
+              ],
+              Text(
+                '共 ${objects(purchase['shipments']).length} 個包裹。出貨與配送為測試物流，不會實際寄送。',
+              ),
+            ]),
           infoCard('金額確認', [
-            moneyRow('商品小計', subtotal),
-            moneyRow('展示運費', 0),
-            moneyRow('合計', subtotal, emphasis: true),
+            if (groups.length > 1) Text('訂單數 ${groups.length} 張'),
+            // 未確認的結帳：購物車可能已被原操作清空，只顯示原操作金額，不混用即時明細
+            if (!restoring) ...[
+              moneyRow('商品小計', preorder ? subtotal : purchase['subtotalTwd']),
+              moneyRow('運費', preorder ? 0 : purchase['shippingTwd']),
+            ],
+            if (restoring) const Text('上一筆結帳結果未確認：請用原編號核對／重試，金額與配送以原操作為準。'),
+            if (restoring)
+              moneyRow(
+                '原操作應付金額',
+                pendingCheckout.body['expectedTotalTwd'],
+                emphasis: true,
+              )
+            else
+              moneyRow('合計', subtotal, emphasis: true),
           ]),
-          const Text('目前採整筆付款的模擬流程。訂單建立後保留 30 分鐘，预購不晚於截單時間。'),
+          const Text(
+            '目前採整筆付款的模擬流程。訂單建立後保留 30 分鐘，預購不晚於截單時間；多張訂單會一起建立，任一張無法建立就全部不建立。',
+          ),
           const SizedBox(height: 16),
           WriteButton(
             label: '建立訂單',
@@ -384,25 +613,42 @@ class _CheckoutScreenState extends ConsumerState<CheckoutScreen> {
                 'requestId': const Uuid().v4(),
                 'addressId': selectedAddress!.id,
                 'addressVersion': selectedAddress.version,
-                'expectedSubtotalTwd': subtotal,
-                if (preorder) 'batchId': widget.batchId,
-                if (preorder) 'quantity': quantity,
-                if (!preorder) 'cartVersion': purchase['version'],
+                if (preorder) ...{
+                  'expectedSubtotalTwd': subtotal,
+                  'batchId': widget.batchId,
+                  'quantity': quantity,
+                } else ...{
+                  'cartVersion': purchase['cartVersion'],
+                  'expectedTotalTwd': subtotal,
+                  'shippingMethod': method,
+                  'deliveryStrategy': purchase['deliveryStrategy'] ?? strategy,
+                  if (method == 'CVS') 'pickupStoreId': store,
+                },
               };
               final result = object(
                 await ref
                     .read(writesProvider)
                     .run(
                       'POST',
-                      preorder ? 'preorders' : 'orders',
+                      preorder ? 'preorders' : 'checkout',
                       body,
                       replayable: true,
                     ),
               );
-              if (context.mounted) {
+              if (!context.mounted) return;
+              if (preorder) {
+                context.go('/orders/preorder/${object(result['order'])['id']}');
+                return;
+              }
+              final placed = objects(result['orders']);
+              // 一張訂單直接到詳情付款；拆成多張時到統一訂單中心的待付款
+              if (placed.length == 1) {
                 context.go(
-                  '/orders/${preorder ? 'preorder' : 'stock'}/${object(result['order'])['id']}',
+                  '/orders/${placed.first['kind'] == 'PREORDER' ? 'preorder' : 'stock'}/${placed.first['id']}',
                 );
+              } else {
+                message(context, '已建立 ${placed.length} 張訂單，請逐一付款');
+                context.go('/orders');
               }
             },
           ),
