@@ -255,6 +255,15 @@ class PendingBanner extends ConsumerWidget {
                               context.go(
                                 '/orders/${preorder ? 'preorder' : 'stock'}/${result['order']['id']}',
                               );
+                            } else if (result is Map &&
+                                result['orders'] is List) {
+                              // 統一結帳：一張直接到詳情，多張到訂單中心
+                              final placed = result['orders'] as List;
+                              context.go(
+                                placed.length == 1
+                                    ? '/orders/${placed.first['kind'] == 'PREORDER' ? 'preorder' : 'stock'}/${placed.first['id']}'
+                                    : '/orders',
+                              );
                             }
                           }
                         } catch (e) {
@@ -279,11 +288,16 @@ class PendingBanner extends ConsumerWidget {
                               .request('GET', resource);
                           if (!context.mounted) return;
                           final summary = resource == 'cart'
-                              ? objects(data['items'])
-                                    .map(
-                                      (i) => '${i['title']} × ${i['quantity']}',
-                                    )
-                                    .join('\n')
+                              ? [
+                                  ...objects(data['items']).map(
+                                    (i) =>
+                                        '現貨 ${i['title']} × ${i['quantity']}',
+                                  ),
+                                  ...objects(data['preorders']).map(
+                                    (i) =>
+                                        '預購 ${i['title']}（${i['batchName']}）× ${i['quantity']}',
+                                  ),
+                                ].join('\n')
                               : resource == 'addresses'
                               ? objects(data)
                                     .map((a) => Address(a).label)

@@ -1,5 +1,23 @@
 # Shop_app 交接
 
+
+## 2026-11-18：Phase 5 配送
+
+分支 `feat/shipping`。需要後端 V23。結帳（購物車）可選宅配／超商取貨（測試門市）、分開寄／一起寄，切換時重新向伺服器報價，送出帶配送欄位；訂單詳情新增「配送」卡（方式、狀態、門市或地址、包裹運費、合併寄送、測試貨件號）。`flutter analyze` 無問題、`flutter test` 27 通過（2 項 live 略過）；`unified_cart_test` 涵蓋超商＋一起寄，`preorder_deposit_test` 涵蓋配送卡。
+
+## 2026-11-18：Phase 4 預購訂金／尾款、延期
+
+分支 `feat/preorder-deposit`。需要後端 V22。批次頁顯示付款方式；直接預購與統一結帳顯示訂金／尾款；預購詳情新增「訂金與尾款」卡、到貨時程異動、付款按鈕標示訂金或尾款與金額（金額由伺服器決定）；訂單列表待付尾款提示（已退款不提示）。`test/preorder_deposit_test.dart`；`flutter analyze` 無問題、`flutter test` 27 通過（2 項 live 略過）。
+
+## 2026-11-18：Phase 3 統一購物車與結帳
+
+分支 `feat/unified-cart`（疊在 `feat/order-center` 上）。需要後端 `feat/unified-cart`（V21）。
+
+- 預購批次頁新增「加入購物車」（登入後），保留「直接預購下單」。
+- 購物車分現貨與預購兩區（預購可增減／移除、顯示批次、預估到貨與剩餘名額），合計使用 `totalTwd`，`checkoutReady` 才能結帳。
+- 結帳（`/checkout/stock` 路由沿用）改讀 `checkout/quote` 分組顯示，下單 `POST /mobile/customer/checkout`（`expectedTotalTwd`），一張訂單到詳情、多張到訂單中心；未確認操作重試也處理多張回應；購物車寫入的核對清單包含預購。
+- 測試：`test/unified_cart_test.dart`（混合購物車、分組、送出內容不含舊欄位、多張導向訂單中心、不呼叫舊下單 API）；`flutter analyze` 無問題、`flutter test` 26 通過（2 項 live 預設略過）；live socket（本機後端、私有可拋棄 fixture `work/live-fixture-p3.json`）2 項通過，含真實統一結帳。
+
 ## 2026-11-18：Phase 2 統一訂單中心
 
 分支 `feat/order-center`（疊在 `feat/contact-only-login` 上），需要後端 `feat/order-center`。
