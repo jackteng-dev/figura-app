@@ -357,7 +357,18 @@ class Writes extends ChangeNotifier {
     if (busy || pending == null || !pending!.replayable) {
       throw ShopError('此操作請先重讀核對');
     }
-    final result = await _send();
+    dynamic result;
+    final shipment = pending!.path.startsWith('shipments/');
+    try {
+      result = await _send();
+    } on ShopError catch (e) {
+      // A rejected shipment replay must refresh the displayed versions as well.
+      if (shipment && e.status == 409 && pending == null) {
+        revision++;
+        notifyListeners();
+      }
+      rethrow;
+    }
     revision++;
     notifyListeners();
     return result;

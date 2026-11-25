@@ -11,6 +11,7 @@ import 'features/catalog.dart';
 import 'features/common.dart';
 import 'features/engagement.dart';
 import 'features/orders.dart';
+import 'features/shipments.dart';
 import 'features/shopping.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -62,6 +63,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/account',
             builder: (_, _) => const AccountScreen(),
             routes: [
+              GoRoute(
+                path: 'shipments',
+                builder: (_, _) => const ShipmentsScreen(),
+              ),
               GoRoute(
                 path: 'favorites',
                 builder: (_, _) => const FavoritesScreen(),
@@ -266,6 +271,10 @@ class PendingBanner extends ConsumerWidget {
                           final result = await writes.retry();
                           if (context.mounted) {
                             message(context, '已確認原操作');
+                            if (p.path.startsWith('shipments/')) {
+                              await showShipmentAdjustment(context, result);
+                              return;
+                            }
                             if (result is Map && result['order'] != null) {
                               final preorder =
                                   p.path.startsWith('preorders') ||
@@ -285,7 +294,16 @@ class PendingBanner extends ConsumerWidget {
                             }
                           }
                         } catch (e) {
-                          if (context.mounted) message(context, e);
+                          if (context.mounted) {
+                            message(
+                              context,
+                              p.path.startsWith('shipments/') &&
+                                      e is ShopError &&
+                                      e.status == 409
+                                  ? '出貨單已變更'
+                                  : e,
+                            );
+                          }
                         }
                       },
                       child: const Text('以原編號核對／重試'),

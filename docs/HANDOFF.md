@@ -1,5 +1,16 @@
 # Shop_app 交接
 
+## 2026-11-25：Commerce V2 我的出貨與私人倉庫
+
+分支 `feat/commerce-v2-specs`，依據 figura-api `docs/WAREHOUSE_API.md`（V28），並唯讀核對後端 Shipment／Warehouse DTO 與等待原因。僅修改 figura-app；未新增套件，未變更購物車、結帳或付款流程，未操作任何資料庫。
+
+- `lib/features/auth.dart` 會員頁新增「我的出貨」，`lib/app.dart` 新增 `/account/shipments` 受登入保護路由。`lib/features/shipments.dart` 透過既有 Bearer `request` 讀取 `shipments?page&pageSize=20`；捲動分頁、防重複載入、失敗手動重試、下拉重讀及忽略過期回應。卡片顯示 API 狀態、WAITING 五種原因、配送方式、運費、商品金額與現貨／預購訂單；暫存期限轉為台北日期「暫存至 yyyy/MM/dd」，天數取自 API `storageDays`，註明測試設定與暫存期間不出貨。
+- `canHold`／`canRelease` 控制暫存／取消暫存按鈕，POST `shipments/{id}/hold|release` 送原顯示版本與 UUID。僅 `mergeable` 可勾選，支援跨分頁選取 2–10 張，不可選者顯示 `blockedReason`；合併確認說明只改寄送、不改訂單金額與付款、差額待審且不自動退款，以及同配送／收件資料與最早暫存期限規則。POST `shipments/merge` 送各張 `id`／`expectedVersion`，有 `adjustment` 時顯示 `creditTwd` 與審核狀態。
+- 沿用 `Writes.run`、安全儲存與 owner 隔離，這三種 requestId 冪等操作標為 `replayable`。未知結果保留原 UUID/body，只由既有 `PendingBanner` 明確核對／重試；新寫入暫停。`lib/core/api.dart` 僅補出貨核對重送遇 409 的 revision 通知；出貨頁監聽 revision，讓保留狀態的導覽頁面也會重讀。初次寫入與 pending 重送的 409 都提示「出貨單已變更」並重讀，清掉舊勾選版本。ACK 後讀取失敗只提供重讀，不恢復寫入；PendingBanner 合併核對成功也顯示運費差額。
+- 新增 `test/shipments_test.dart` **20 項 widget 測試**（Adapter／response）：會員入口、暫存日期與時區、配送／金額／內含訂單與不可選原因、WAITING 原因及全部狀態、暫存／取消暫存路徑與版本／Bearer／UUID、合併至少兩張／取消確認／正確 body／差額、初次與 pending 重送 409 重讀版本、未知結果重建後保留原 body 並核對、ACK 後 GET 失敗只重讀、分頁防重複／失敗重試／末頁停止。
+- 驗證：`work/flutter/bin/dart format lib test` 通過；`flutter analyze --no-pub` **No issues found**；`flutter test --no-pub --timeout 60s` **71 通過、2 項既有 opt-in live 測試略過**；`flutter build web --release --no-pub` 成功。未跑真後端、真機、Android 或 iOS 驗證；運費差額沒有實際退款，物流仍為既有模擬服務。
+- 開始時工作樹乾淨、HEAD `ca0b018`、分支正確；已讀本機與 `origin/main:docs/HANDOFF.md`、核對 status/log/diff。`git fetch origin` 因 `.git/FETCH_HEAD` 寫入被拒失敗，無法確認遠端最新狀態，未更新 main。本輪依指示不 push、不開 PR；`git add` 因無法建立 `.git/index.lock`（Permission denied）失敗，因此 **尚未完成本機 commit**，變更保留於工作樹。預定 commit 訊息為 `feat: add customer shipments and warehouse storage`，訊息末行 `Co-Authored-By: Codex`。
+
 ## 2026-11-25：Commerce V2 收藏、商品提醒與通知
 
 分支 `feat/commerce-v2-specs`，依據 figura-api `docs/ENGAGEMENT_API.md`（V27）。只修改 figura-app；未新增套件或變更購物車／結帳／訂單流程，figura-api 與 figura-web 未修改。

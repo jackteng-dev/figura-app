@@ -177,6 +177,10 @@ class AccountScreen extends ConsumerWidget {
             child: const Text('通知設定'),
           ),
           const NotificationsEntry(),
+          OutlinedButton(
+            onPressed: () => context.push('/account/shipments'),
+            child: const Text('我的出貨'),
+          ),
           const SizedBox(height: 20),
           OutlinedButton(
             onPressed: () => context.push('/addresses'),
