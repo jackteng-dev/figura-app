@@ -393,11 +393,11 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
 
   @override
   Widget build(BuildContext context) {
-    // The facets contract excludes availability, sorting and pagination.
+    // Facets take every filter except sorting and pagination; the server keeps
+    // the availability counts themselves unfiltered so options stay switchable.
     final parameters = {
       if (widget.q.isNotEmpty) 'q': widget.q,
-      for (final entry in _draft.entries)
-        if (entry.key != 'availability') entry.key: entry.value,
+      for (final entry in _draft.entries) entry.key: entry.value,
     };
     final path = _path('facets', parameters);
     return Padding(
@@ -470,7 +470,7 @@ class _FilterSheetState extends ConsumerState<_FilterSheet> {
                 return ListView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
-                    Text('目前條件共 ${facets['total']} 筆（未套用可售狀態）'),
+                    Text('目前條件共 ${facets['total']} 筆'),
                     if (facets['priceMin'] != null &&
                         facets['priceMax'] != null)
                       Text(

@@ -330,7 +330,10 @@ void main() {
       final facetCalls = adapter.requests.where(
         (r) => Uri.parse(r.path).path == 'catalog/facets',
       );
-      expect(query(facetCalls.last), expected);
+      expect(query(facetCalls.last), {
+        ...expected,
+        'availability': 'IN_STOCK,PREORDER',
+      });
       await tester.tap(find.text('套用篩選'));
       await tester.pumpAndSettle();
       expect(query(searches(adapter).last), {
