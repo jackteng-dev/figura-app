@@ -1,5 +1,12 @@
 # Shop_app 交接
 
+## 2026-11-25：Commerce V2 App 總結（分支 `feat/commerce-v2-specs`，未合併）
+
+- 依 API 契約（CATALOG_SEARCH_API、ENGAGEMENT_API、WAREHOUSE_API、SUPPORT_API）完成 Phase 1–6 顧客功能；員工功能（Phase 7）只在 Web。各階段細節見下方四段。
+- 實作由本機 Codex 完成；Claude 逐段審查 diff、補上 facets 帶 availability 的契約變更、代為 commit（Codex 沙箱無法建立 `.git/index.lock`），並在本機重跑：`flutter analyze --no-pub` 無問題、`flutter test --no-pub` **86 通過／2 項既有 live 略過**。
+- 未改 `pubspec.yaml` 相依；購物車、結帳、付款流程未改。
+- **未驗證**：真機（Android／iOS）、連真後端整合。需在 API V25–V30 受控切換上線後再合併本分支。
+
 ## 2026-11-25：Commerce V2 客服中心、物流追蹤與政策頁
 
 分支 `feat/commerce-v2-specs`，依據 figura-api `docs/SUPPORT_API.md`（V29），唯讀核對 SupportController／SupportService／TrackingService DTO。僅修改 figura-app；未新增套件，未變更購物車、結帳或付款流程，未操作資料庫。
