@@ -1,5 +1,15 @@
 # Shop_app 交接
 
+## 2026-11-25：Commerce V2 商品規格與後端搜尋
+
+分支 `feat/commerce-v2-specs`，依據 figura-api `docs/CATALOG_SEARCH_API.md`（V25／V26）。僅修改 figura-app；未新增套件、未變更購物車／結帳／訂單寫入。
+
+- 商品詳情沿用 `RequestView`／`infoCard`，新增「商品規格」表格，只顯示有值欄位，翻譯比例／材質／類型／版本代碼，配件逐項列出；`AI_CONCEPT` 顯示「AI 虛構展示商品」，概念材質只列於「設定材質（概念）」，不混入真實材質。商品詳情與列表顯示 API 可售狀態、預購截止與到貨區間；列表價格使用 `minPriceTwd`。
+- 「現貨」分頁改用公開 `catalog/products` 後端搜尋：送出才套用 q、五種排序／有關鍵字時可選相關度、bottom sheet 多值篩選與限定／整數價格區間。`catalog/facets` 隨 q 與草稿條件重讀選項及筆數（依契約排除 availability、sort、分頁）；取消不套用，清除同時清空價格。每頁 20 筆，捲動載入後續頁、顯示總筆數與失敗重試；條件切換回第 1 頁及頂端，阻擋重複／超過末頁請求，忽略舊條件延遲回應。預購分頁保留原本流程。
+- 新增 `test/catalog_search_test.dart` 10 項 widget 測試，沿用 `Adapter`／`response`：有值規格及代碼翻譯、概念材質隔離與預購時程、舊商品缺規格、送出搜尋／相關度、多值篩選與 facets 契約、完整條件第 2 頁、連續捲動不重複載入、條件重設、延遲回應隔離、價格驗證／取消、清除價格、三種狀態標示（部分情境合併於同一測試）。
+- 本機 Windows／repo 內 `work/flutter`：`dart format lib test` 通過；`flutter analyze --no-pub` **No issues found**；`flutter test --no-pub --timeout 60s` **37 通過、2 項既有 opt-in live 測試略過**；`flutter build web --release --no-pub` 成功。網路限制使一般依賴解析停滯，使用既有快取，未變更 `pubspec.yaml`／lock。未連線資料庫、未執行真後端／真機／Android／iOS 驗證。
+- 依本次指示只做本機 commit，不 push、不開 PR。開始時工作樹乾淨，HEAD 與本機 `origin/main` 同為 `0d518b2`；已讀本機遠端追蹤版交接。`git fetch origin` 因既有 `.git/FETCH_HEAD` 寫入被拒失敗，另以 `ls-remote` 核對時 GitHub 443 無法連線，因此無法確認遠端最新狀態；未更新 main。
+
 
 ## 2026-11-18：Phase 5 配送
 
