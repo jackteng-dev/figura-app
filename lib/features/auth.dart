@@ -8,6 +8,7 @@ import '../core/api.dart';
 import '../core/identity.dart';
 import '../core/providers.dart';
 import 'common.dart';
+import 'engagement.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -166,6 +167,16 @@ class AccountScreen extends ConsumerWidget {
               Text(data['emailVerified'] == true ? 'Email 已驗證' : 'Email 尚未驗證'),
             Text('手機：${mobile ?? '未設定'}'),
           ]),
+          const SizedBox(height: 20),
+          OutlinedButton(
+            onPressed: () => context.push('/account/favorites'),
+            child: const Text('我的收藏'),
+          ),
+          OutlinedButton(
+            onPressed: () => context.push('/account/notification-preferences'),
+            child: const Text('通知設定'),
+          ),
+          const NotificationsEntry(),
           const SizedBox(height: 20),
           OutlinedButton(
             onPressed: () => context.push('/addresses'),

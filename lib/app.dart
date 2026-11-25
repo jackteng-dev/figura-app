@@ -9,6 +9,7 @@ import 'core/providers.dart';
 import 'features/auth.dart';
 import 'features/catalog.dart';
 import 'features/common.dart';
+import 'features/engagement.dart';
 import 'features/orders.dart';
 import 'features/shopping.dart';
 
@@ -57,7 +58,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/addresses',
             builder: (_, _) => const AddressesScreen(),
           ),
-          GoRoute(path: '/account', builder: (_, _) => const AccountScreen()),
+          GoRoute(
+            path: '/account',
+            builder: (_, _) => const AccountScreen(),
+            routes: [
+              GoRoute(
+                path: 'favorites',
+                builder: (_, _) => const FavoritesScreen(),
+              ),
+              GoRoute(
+                path: 'notification-preferences',
+                builder: (_, _) => const NotificationPreferencesScreen(),
+              ),
+              GoRoute(
+                path: 'notifications',
+                builder: (_, _) => const NotificationsScreen(),
+              ),
+            ],
+          ),
           GoRoute(
             path: '/checkout/stock',
             builder: (_, _) => const CheckoutScreen(),
@@ -278,6 +296,14 @@ class PendingBanner extends ConsumerWidget {
                         try {
                           final resource = p.path.startsWith('cart')
                               ? 'cart'
+                              : p.path == 'notification-preferences'
+                              ? 'notification-preferences'
+                              : p.path.startsWith('favorites/')
+                              ? 'favorites/ids'
+                              : p.path.startsWith('product-alerts/')
+                              ? 'product-alerts'
+                              : p.path == 'notifications/read'
+                              ? 'notifications?page=1&pageSize=20&unread=false'
                               : p.path.startsWith('addresses')
                               ? 'addresses'
                               : p.path.startsWith('orders/')
@@ -302,6 +328,19 @@ class PendingBanner extends ConsumerWidget {
                               ? objects(data)
                                     .map((a) => Address(a).label)
                                     .join('\n')
+                              : resource == 'notification-preferences'
+                              ? 'Email 通知：${data['emailEnabled'] == true ? '開' : '關'}\n訂單通知：${data['orderUpdates'] == true ? '開' : '關'}\n商品提醒：${data['productAlerts'] == true ? '開' : '關'}\n版本：${data['version']}'
+                              : resource == 'favorites/ids'
+                              ? '目前收藏商品：${(data['productIds'] as List).join('、')}'
+                              : resource == 'product-alerts'
+                              ? objects(data)
+                                    .map(
+                                      (a) =>
+                                          '${a['title']}：${(a['kinds'] as List).map((k) => alertLabels[k] ?? k).join('、')}',
+                                    )
+                                    .join('\n')
+                              : resource.startsWith('notifications?')
+                              ? '未讀通知：${data['unread']} 則'
                               : resource == 'me'
                               // 舊版 App 留下的「修改暱稱」待核對操作：暱稱已停用，顯示目前會員資料供核對後解除
                               ? '暱稱功能已停用，這筆修改不會再送出。\nEmail：${data['email'] ?? '未設定'}\n手機：${data['phone'] ?? '未設定'}'

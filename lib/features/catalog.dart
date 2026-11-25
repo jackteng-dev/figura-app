@@ -7,6 +7,7 @@ import '../core/providers.dart';
 import 'common.dart';
 import 'catalog_search.dart';
 import 'catalog_specs.dart';
+import 'engagement.dart';
 
 class CatalogScreen extends ConsumerWidget {
   final bool preorder;
@@ -114,6 +115,7 @@ class ProductScreen extends ConsumerWidget {
           Text('${j['brand']} · ${j['category']}'),
           if (j['work'] != null) Text('${j['work']}'),
           ProductAvailability(product: j),
+          ProductEngagement(id: id),
           const SizedBox(height: 16),
           Text(j['description'] ?? ''),
           const SizedBox(height: 24),

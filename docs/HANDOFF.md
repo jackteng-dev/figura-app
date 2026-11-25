@@ -1,5 +1,16 @@
 # Shop_app 交接
 
+## 2026-11-25：Commerce V2 收藏、商品提醒與通知
+
+分支 `feat/commerce-v2-specs`，依據 figura-api `docs/ENGAGEMENT_API.md`（V27）。只修改 figura-app；未新增套件或變更購物車／結帳／訂單流程，figura-api 與 figura-web 未修改。
+
+- `lib/features/engagement.dart` 沿用 `RequestView`、`infoCard`、`WriteButton` 與既有 Bearer `request`：商品詳情登入後讀 `favorites/ids` 與 `product-alerts`，愛心 PUT／DELETE、顯示已訂閱種類、bottom sheet 勾選四種提醒後 PUT 整組（空陣列取消）。訪客顯示「登入後才能收藏」與前往登入，不儲存訪客收藏。
+- 會員頁新增「我的收藏」、「通知設定」、「通知（API unread 則未讀）」；收藏／通知列表每頁 20 筆、捲動載入、阻擋重複載入、失敗顯示重試、可下拉重讀。收藏顯示 API 價格與可售狀態、移除及進商品頁；未提供價格時顯示待確認。通知未讀標題加粗、單筆與全部標已讀，收到 ACK 後依 productId／orderId／preorderOrderId 進既有詳情；無目標只更新已讀。
+- 通知偏好三個開關每次送完整布林欄位與 `expectedVersion`；409 顯示「設定已在其他裝置變更」並重讀；顯示 Email 驗證與測試環境不實際寄信說明，註明偏好只控制 Email、站內通知保留。新功能寫入沿用 `Writes` 安全儲存與未完成操作隔離；不盲目重送未知結果，`PendingBanner` 針對新資源讀取目前伺服器資料供核對。ACK 後讀取失敗僅提供重讀。
+- 新增 `test/engagement_test.dart` **14 項 widget 測試**，沿用 `test/api_test.dart` 的 Adapter／response，涵蓋愛心方法與路徑／Bearer、訪客提示與登入導向、提醒整組替換與清空、偏好 409 重新讀取版本與未知結果保留、收藏捲動分頁／失敗重試／移除／商品導向、通知單筆與全部已讀／字重／三種目標導向／分頁／失敗重試、會員未讀數入口。
+- 驗證：repo 內 `work/flutter` 的 `dart format lib test` 通過；`flutter analyze --no-pub` **No issues found**；`flutter test --no-pub --timeout 60s` **51 通過、2 項既有 opt-in live 測試略過**；`flutter build web --release --no-pub` 成功。未連線資料庫，未執行真後端通知掃描／Email／真機／Android／iOS 驗證；Email 是否實際啟用由伺服器 `emailDeliveryActive` 決定。
+- 本次依指示只做本機 commit（訊息結尾 `Co-Authored-By: Codex`），不 push、不開 PR。開始時工作樹乾淨、HEAD `bea7f40`，已讀本機 `origin/main:docs/HANDOFF.md` 並核對 status/log/diff。`git fetch origin` 因 `.git/FETCH_HEAD` 寫入被拒失敗，`git ls-remote` 亦無法連線 GitHub 443；無法確認遠端最新狀態，未更新 main。
+
 ## 2026-11-25：Commerce V2 商品規格與後端搜尋
 
 分支 `feat/commerce-v2-specs`，依據 figura-api `docs/CATALOG_SEARCH_API.md`（V25／V26）。僅修改 figura-app；未新增套件、未變更購物車／結帳／訂單寫入。
