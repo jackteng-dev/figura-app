@@ -1,5 +1,17 @@
 # Shop_app 交接
 
+## 2026-11-25：Commerce V2 客服中心、物流追蹤與政策頁
+
+分支 `feat/commerce-v2-specs`，依據 figura-api `docs/SUPPORT_API.md`（V29），唯讀核對 SupportController／SupportService／TrackingService DTO。僅修改 figura-app；未新增套件，未變更購物車、結帳或付款流程，未操作資料庫。
+
+- `lib/features/support.dart` 新增本人客服單分頁清單、八種類別與四種狀態中文、建立表單及對話詳情。從既有 Bearer `order-center` 分頁挑選一張本人現貨／預購訂單，僅帶對應 `orderId`／`preorderOrderId`；找不到或讀取失敗可不關聯。主旨最多 120、內容／回覆最多 4000 字，必填檢查後以 UUID `requestId` 建立／回覆；客服訊息顯示 API `staffUsername`。CLOSED 隱藏回覆框並提供建立新單入口。
+- 客服寫入沿用 `Writes.run(... replayable: true)`、原生安全儲存與 owner 隔離；未知結果保留原 UUID/body，暫停新寫入，只由 `PendingBanner` 明確核對重送。ACK 後以 `current.ticket.id` 導向詳情；回覆 ACK 後清空輸入並重讀，讀取失敗只重讀。核對重送成功導向本人客服單，重送回覆 409 也會觸發 revision 重讀（例如已結案）。`common.dart` 補上重讀 future 的錯誤接管，避免快速失敗在 FutureBuilder 訂閱前成為未處理錯誤，畫面仍顯示原錯誤及重新讀取。
+- `shipments.dart` 的 SHIPPED／DELIVERED 卡片新增物流追蹤入口，GET `mobile/customer/shipments/{id}/tracking` 顯示事件時間軸、六種事件中文、物流商與貨件號；`testCarrier=true` 明確標示「測試物流，非真實物流資訊」。不合成任何追蹤事件。
+- 會員頁新增客服入口及訪客可看的「政策與說明」，訪客保留原本登入表單。`api.dart` 新增不帶 Bearer 的 `publicPageGet`，直接 GET `site-pages`／`site-pages/{slug}`（不加 catalog 前綴）；政策與會員根頁為公開路由，其他會員功能維持登入保護。未發布只顯示標題與「條款審核中」，即使回應意外帶 body 也不顯示；已發布以純文字保留換行，不捏造政策內容。
+- `test/support_test.dart` 新增 **15 項 widget 測試**：現貨／預購關聯建立 body／類別／Bearer／UUID、必填及訂單讀取失敗不關聯、CLOSED 與客服姓名、回覆 body 與 ACK 後 GET 失敗只重讀、建立與回覆未知結果重建後由 PendingBanner 原 body 核對、pending 回覆 409 重讀結案、六種物流中文與測試標示、出貨狀態入口、會員與訪客公開政策無 Bearer／未發布內容隔離、已發布純文字換行、訪客入口與客服登入保護、會員入口與全部客服狀態。
+- 驗證：`work/flutter/bin/dart format lib test` 通過；`flutter analyze --no-pub` **No issues found**；`flutter test --no-pub --timeout 60s` **86 通過、2 項既有 opt-in live 測試略過**；`flutter build web --release --no-pub` 成功。未執行真後端、真機、Android 或 iOS 驗證。
+- 開始時工作樹乾淨，HEAD `93b06d7`、分支正確；已讀本機與 `origin/main:docs/HANDOFF.md` 並核對 status/log/diff。`git fetch origin` 因 `.git/FETCH_HEAD` 寫入被拒失敗，無法確認遠端最新狀態，未更新分支。已核對 `git diff --stat origin/main`，本 repo 無 CD 受保護路徑。本輪依指示不 push、不開 PR；已嘗試本機 commit，`git add` 因無法建立 `.git/index.lock`（Permission denied）失敗，**未完成 commit，八個檔案的變更保留於工作樹**。預定訊息 `feat: add customer support tracking and policy pages`，末行 `Co-Authored-By: Codex`。
+
 ## 2026-11-25：Commerce V2 我的出貨與私人倉庫
 
 分支 `feat/commerce-v2-specs`，依據 figura-api `docs/WAREHOUSE_API.md`（V28），並唯讀核對後端 Shipment／Warehouse DTO 與等待原因。僅修改 figura-app；未新增套件，未變更購物車、結帳或付款流程，未操作任何資料庫。

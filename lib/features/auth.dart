@@ -153,7 +153,20 @@ class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => RequestView(
+  Widget build(BuildContext context, WidgetRef ref) => Column(
+    children: [
+      OutlinedButton(
+        onPressed: () => context.push('/account/site-pages'),
+        child: const Text('政策與說明'),
+      ),
+      if (!ref.watch(apiProvider).signedIn)
+        const Expanded(child: LoginScreen())
+      else
+        Expanded(child: member(context, ref)),
+    ],
+  );
+
+  Widget member(BuildContext context, WidgetRef ref) => RequestView(
     load: () => ref.read(apiProvider).request('GET', 'me'),
     render: (data, reload) {
       final mail = data['email'] as String?, mobile = data['phone'] as String?;
@@ -177,6 +190,10 @@ class AccountScreen extends ConsumerWidget {
             child: const Text('通知設定'),
           ),
           const NotificationsEntry(),
+          OutlinedButton(
+            onPressed: () => context.push('/account/support-tickets'),
+            child: const Text('客服中心'),
+          ),
           OutlinedButton(
             onPressed: () => context.push('/account/shipments'),
             child: const Text('我的出貨'),

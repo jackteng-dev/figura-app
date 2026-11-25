@@ -94,6 +94,9 @@ class _RequestViewState extends State<RequestView> {
     if (!mounted) return;
     setState(() {
       future = widget.load();
+      // A fast failure can arrive before FutureBuilder rebuilds and subscribes.
+      // Keep it handled here; FutureBuilder still displays the original error.
+      future.ignore();
     });
   }
 

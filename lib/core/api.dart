@@ -114,6 +114,7 @@ class ShopApi extends ChangeNotifier {
   }
 
   Future<dynamic> publicGet(String path) => _raw('GET', 'catalog/$path');
+  Future<dynamic> publicPageGet(String path) => _raw('GET', path);
   Future<dynamic> request(String method, String path, {Json? body}) async {
     if (!signedIn) throw ShopError('請先登入', status: 401);
     final token = accessToken;
@@ -358,12 +359,14 @@ class Writes extends ChangeNotifier {
       throw ShopError('此操作請先重讀核對');
     }
     dynamic result;
-    final shipment = pending!.path.startsWith('shipments/');
+    final refreshOnConflict =
+        pending!.path.startsWith('shipments/') ||
+        pending!.path.startsWith('support-tickets/');
     try {
       result = await _send();
     } on ShopError catch (e) {
-      // A rejected shipment replay must refresh the displayed versions as well.
-      if (shipment && e.status == 409 && pending == null) {
+      // Refresh rejected replays, including a ticket closed while reply was pending.
+      if (refreshOnConflict && e.status == 409 && pending == null) {
         revision++;
         notifyListeners();
       }

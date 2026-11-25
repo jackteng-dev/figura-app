@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/api.dart';
@@ -185,6 +186,13 @@ class _ShipmentsScreenState extends ConsumerState<ShipmentsScreen> {
     final enabled = !writes.busy && writes.pending == null;
     return infoCard('出貨單 $id', [
       Text(shipmentStatus(shipment)),
+      if (shipment['status'] == 'SHIPPED' || shipment['status'] == 'DELIVERED')
+        OutlinedButton(
+          onPressed: () => context.push(
+            '/account/shipments/${Uri.encodeComponent(id)}/tracking',
+          ),
+          child: const Text('物流追蹤'),
+        ),
       Text('配送方式：${shipment['methodName'] ?? shipment['method']}'),
       moneyRow('運費', shipment['feeTwd']),
       moneyRow('商品金額', shipment['goodsTwd']),

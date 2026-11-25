@@ -13,6 +13,7 @@ import 'features/engagement.dart';
 import 'features/orders.dart';
 import 'features/shipments.dart';
 import 'features/shopping.dart';
+import 'features/support.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final api = ref.read(apiProvider);
@@ -23,6 +24,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       final public =
           path == '/login' ||
+          path == '/account' ||
+          path == '/account/site-pages' ||
+          path.startsWith('/account/site-pages/') ||
           path.startsWith('/products') ||
           path.startsWith('/batches');
       if (!public && !api.signedIn) return '/login';
@@ -64,8 +68,41 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, _) => const AccountScreen(),
             routes: [
               GoRoute(
+                path: 'site-pages',
+                builder: (_, _) => const SitePagesScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':slug',
+                    builder: (_, s) =>
+                        SitePageScreen(slug: s.pathParameters['slug']!),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'support-tickets',
+                builder: (_, _) => const SupportTicketsScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'new',
+                    builder: (_, _) => const NewSupportTicketScreen(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    builder: (_, s) =>
+                        SupportTicketScreen(id: s.pathParameters['id']!),
+                  ),
+                ],
+              ),
+              GoRoute(
                 path: 'shipments',
                 builder: (_, _) => const ShipmentsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id/tracking',
+                    builder: (_, s) =>
+                        ShipmentTrackingScreen(id: s.pathParameters['id']!),
+                  ),
+                ],
               ),
               GoRoute(
                 path: 'favorites',
@@ -271,6 +308,18 @@ class PendingBanner extends ConsumerWidget {
                           final result = await writes.retry();
                           if (context.mounted) {
                             message(context, '已確認原操作');
+                            if (p.path == 'support-tickets' ||
+                                p.path.startsWith('support-tickets/')) {
+                              final ticket = object(
+                                object(result)['current'],
+                              )['ticket'];
+                              if (ticket is Map && ticket['id'] is String) {
+                                context.go(
+                                  '/account/support-tickets/${Uri.encodeComponent(ticket['id'] as String)}',
+                                );
+                              }
+                              return;
+                            }
                             if (p.path.startsWith('shipments/')) {
                               await showShipmentAdjustment(context, result);
                               return;
