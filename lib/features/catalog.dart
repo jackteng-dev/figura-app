@@ -5,57 +5,64 @@ import 'package:go_router/go_router.dart';
 import '../core/models.dart';
 import '../core/providers.dart';
 import 'common.dart';
+import 'catalog_search.dart';
+import 'catalog_specs.dart';
+import 'engagement.dart';
 
 class CatalogScreen extends ConsumerWidget {
   final bool preorder;
   const CatalogScreen({super.key, this.preorder = false});
   @override
-  Widget build(BuildContext context, WidgetRef ref) => PagedView(
-    load: (page) async => object(
-      await ref
-          .read(apiProvider)
-          .publicGet(
-            '${preorder ? 'preorders' : 'products'}?page=$page&pageSize=12',
+  Widget build(BuildContext context, WidgetRef ref) => preorder
+      ? PagedView(
+          load: (page) async => object(
+            await ref
+                .read(apiProvider)
+                .publicGet(
+                  '${preorder ? 'preorders' : 'products'}?page=$page&pageSize=12',
+                ),
           ),
-    ),
-    empty: preorder ? '目前沒有開放的預購批次' : '目前沒有上架商品',
-    item: (j) => Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () =>
-            context.push('/${preorder ? 'batches' : 'products'}/${j['id']}'),
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Row(
-            children: [
-              if (!preorder) ProductImage(product: j, size: 96),
-              if (!preorder) const SizedBox(width: 18),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          empty: preorder ? '目前沒有開放的預購批次' : '目前沒有上架商品',
+          item: (j) => Card(
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () => context.push(
+                '/${preorder ? 'batches' : 'products'}/${j['id']}',
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Row(
                   children: [
-                    Text(
-                      '${preorder ? j['productTitle'] : j['title']}',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    if (!preorder) ProductImage(product: j, size: 96),
+                    if (!preorder) const SizedBox(width: 18),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${preorder ? j['productTitle'] : j['title']}',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text('${preorder ? j['name'] : j['brand']}'),
+                          const SizedBox(height: 8),
+                          Text(preorder ? twd(j['priceTwd']) : '查看款式與價格'),
+                          if (preorder)
+                            Text('截單 ${dateLabel(j['deadlineAt'])}'),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text('${preorder ? j['name'] : j['brand']}'),
-                    const SizedBox(height: 8),
-                    Text(preorder ? twd(j['priceTwd']) : '查看款式與價格'),
-                    if (preorder) Text('截單 ${dateLabel(j['deadlineAt'])}'),
+                    const Icon(Icons.chevron_right),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right),
-            ],
+            ),
           ),
-        ),
-      ),
-    ),
-  );
+        )
+      : const ProductSearch();
 }
 
 class ProductImage extends ConsumerWidget {
@@ -107,6 +114,8 @@ class ProductScreen extends ConsumerWidget {
           const SizedBox(height: 8),
           Text('${j['brand']} · ${j['category']}'),
           if (j['work'] != null) Text('${j['work']}'),
+          ProductAvailability(product: j),
+          ProductEngagement(id: id),
           const SizedBox(height: 16),
           Text(j['description'] ?? ''),
           const SizedBox(height: 24),
@@ -145,6 +154,7 @@ class ProductScreen extends ConsumerWidget {
                     ),
             ]),
           ),
+          ProductSpecs(product: j),
         ],
       );
     },

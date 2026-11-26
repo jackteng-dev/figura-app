@@ -1,5 +1,56 @@
 # Shop_app 交接
 
+## 2026-11-25：Commerce V2 App 總結（分支 `feat/commerce-v2-specs`，未合併）
+
+- 依 API 契約（CATALOG_SEARCH_API、ENGAGEMENT_API、WAREHOUSE_API、SUPPORT_API）完成 Phase 1–6 顧客功能；員工功能（Phase 7）只在 Web。各階段細節見下方四段。
+- 實作由本機 Codex 完成；Claude 逐段審查 diff、補上 facets 帶 availability 的契約變更、代為 commit（Codex 沙箱無法建立 `.git/index.lock`），並在本機重跑：`flutter analyze --no-pub` 無問題、`flutter test --no-pub` **86 通過／2 項既有 live 略過**。
+- 未改 `pubspec.yaml` 相依；購物車、結帳、付款流程未改。
+- **未驗證**：真機（Android／iOS）、連真後端整合。需在 API V25–V30 受控切換上線後再合併本分支。
+
+## 2026-11-25：Commerce V2 客服中心、物流追蹤與政策頁
+
+分支 `feat/commerce-v2-specs`，依據 figura-api `docs/SUPPORT_API.md`（V29），唯讀核對 SupportController／SupportService／TrackingService DTO。僅修改 figura-app；未新增套件，未變更購物車、結帳或付款流程，未操作資料庫。
+
+- `lib/features/support.dart` 新增本人客服單分頁清單、八種類別與四種狀態中文、建立表單及對話詳情。從既有 Bearer `order-center` 分頁挑選一張本人現貨／預購訂單，僅帶對應 `orderId`／`preorderOrderId`；找不到或讀取失敗可不關聯。主旨最多 120、內容／回覆最多 4000 字，必填檢查後以 UUID `requestId` 建立／回覆；客服訊息顯示 API `staffUsername`。CLOSED 隱藏回覆框並提供建立新單入口。
+- 客服寫入沿用 `Writes.run(... replayable: true)`、原生安全儲存與 owner 隔離；未知結果保留原 UUID/body，暫停新寫入，只由 `PendingBanner` 明確核對重送。ACK 後以 `current.ticket.id` 導向詳情；回覆 ACK 後清空輸入並重讀，讀取失敗只重讀。核對重送成功導向本人客服單，重送回覆 409 也會觸發 revision 重讀（例如已結案）。`common.dart` 補上重讀 future 的錯誤接管，避免快速失敗在 FutureBuilder 訂閱前成為未處理錯誤，畫面仍顯示原錯誤及重新讀取。
+- `shipments.dart` 的 SHIPPED／DELIVERED 卡片新增物流追蹤入口，GET `mobile/customer/shipments/{id}/tracking` 顯示事件時間軸、六種事件中文、物流商與貨件號；`testCarrier=true` 明確標示「測試物流，非真實物流資訊」。不合成任何追蹤事件。
+- 會員頁新增客服入口及訪客可看的「政策與說明」，訪客保留原本登入表單。`api.dart` 新增不帶 Bearer 的 `publicPageGet`，直接 GET `site-pages`／`site-pages/{slug}`（不加 catalog 前綴）；政策與會員根頁為公開路由，其他會員功能維持登入保護。未發布只顯示標題與「條款審核中」，即使回應意外帶 body 也不顯示；已發布以純文字保留換行，不捏造政策內容。
+- `test/support_test.dart` 新增 **15 項 widget 測試**：現貨／預購關聯建立 body／類別／Bearer／UUID、必填及訂單讀取失敗不關聯、CLOSED 與客服姓名、回覆 body 與 ACK 後 GET 失敗只重讀、建立與回覆未知結果重建後由 PendingBanner 原 body 核對、pending 回覆 409 重讀結案、六種物流中文與測試標示、出貨狀態入口、會員與訪客公開政策無 Bearer／未發布內容隔離、已發布純文字換行、訪客入口與客服登入保護、會員入口與全部客服狀態。
+- 驗證：`work/flutter/bin/dart format lib test` 通過；`flutter analyze --no-pub` **No issues found**；`flutter test --no-pub --timeout 60s` **86 通過、2 項既有 opt-in live 測試略過**；`flutter build web --release --no-pub` 成功。未執行真後端、真機、Android 或 iOS 驗證。
+- 開始時工作樹乾淨，HEAD `93b06d7`、分支正確；已讀本機與 `origin/main:docs/HANDOFF.md` 並核對 status/log/diff。`git fetch origin` 因 `.git/FETCH_HEAD` 寫入被拒失敗，無法確認遠端最新狀態，未更新分支。已核對 `git diff --stat origin/main`，本 repo 無 CD 受保護路徑。本輪依指示不 push、不開 PR；已嘗試本機 commit，`git add` 因無法建立 `.git/index.lock`（Permission denied）失敗，**未完成 commit，八個檔案的變更保留於工作樹**。預定訊息 `feat: add customer support tracking and policy pages`，末行 `Co-Authored-By: Codex`。
+
+## 2026-11-25：Commerce V2 我的出貨與私人倉庫
+
+分支 `feat/commerce-v2-specs`，依據 figura-api `docs/WAREHOUSE_API.md`（V28），並唯讀核對後端 Shipment／Warehouse DTO 與等待原因。僅修改 figura-app；未新增套件，未變更購物車、結帳或付款流程，未操作任何資料庫。
+
+- `lib/features/auth.dart` 會員頁新增「我的出貨」，`lib/app.dart` 新增 `/account/shipments` 受登入保護路由。`lib/features/shipments.dart` 透過既有 Bearer `request` 讀取 `shipments?page&pageSize=20`；捲動分頁、防重複載入、失敗手動重試、下拉重讀及忽略過期回應。卡片顯示 API 狀態、WAITING 五種原因、配送方式、運費、商品金額與現貨／預購訂單；暫存期限轉為台北日期「暫存至 yyyy/MM/dd」，天數取自 API `storageDays`，註明測試設定與暫存期間不出貨。
+- `canHold`／`canRelease` 控制暫存／取消暫存按鈕，POST `shipments/{id}/hold|release` 送原顯示版本與 UUID。僅 `mergeable` 可勾選，支援跨分頁選取 2–10 張，不可選者顯示 `blockedReason`；合併確認說明只改寄送、不改訂單金額與付款、差額待審且不自動退款，以及同配送／收件資料與最早暫存期限規則。POST `shipments/merge` 送各張 `id`／`expectedVersion`，有 `adjustment` 時顯示 `creditTwd` 與審核狀態。
+- 沿用 `Writes.run`、安全儲存與 owner 隔離，這三種 requestId 冪等操作標為 `replayable`。未知結果保留原 UUID/body，只由既有 `PendingBanner` 明確核對／重試；新寫入暫停。`lib/core/api.dart` 僅補出貨核對重送遇 409 的 revision 通知；出貨頁監聽 revision，讓保留狀態的導覽頁面也會重讀。初次寫入與 pending 重送的 409 都提示「出貨單已變更」並重讀，清掉舊勾選版本。ACK 後讀取失敗只提供重讀，不恢復寫入；PendingBanner 合併核對成功也顯示運費差額。
+- 新增 `test/shipments_test.dart` **20 項 widget 測試**（Adapter／response）：會員入口、暫存日期與時區、配送／金額／內含訂單與不可選原因、WAITING 原因及全部狀態、暫存／取消暫存路徑與版本／Bearer／UUID、合併至少兩張／取消確認／正確 body／差額、初次與 pending 重送 409 重讀版本、未知結果重建後保留原 body 並核對、ACK 後 GET 失敗只重讀、分頁防重複／失敗重試／末頁停止。
+- 驗證：`work/flutter/bin/dart format lib test` 通過；`flutter analyze --no-pub` **No issues found**；`flutter test --no-pub --timeout 60s` **71 通過、2 項既有 opt-in live 測試略過**；`flutter build web --release --no-pub` 成功。未跑真後端、真機、Android 或 iOS 驗證；運費差額沒有實際退款，物流仍為既有模擬服務。
+- 開始時工作樹乾淨、HEAD `ca0b018`、分支正確；已讀本機與 `origin/main:docs/HANDOFF.md`、核對 status/log/diff。`git fetch origin` 因 `.git/FETCH_HEAD` 寫入被拒失敗，無法確認遠端最新狀態，未更新 main。本輪依指示不 push、不開 PR；`git add` 因無法建立 `.git/index.lock`（Permission denied）失敗，因此 **尚未完成本機 commit**，變更保留於工作樹。預定 commit 訊息為 `feat: add customer shipments and warehouse storage`，訊息末行 `Co-Authored-By: Codex`。
+
+## 2026-11-25：Commerce V2 收藏、商品提醒與通知
+
+分支 `feat/commerce-v2-specs`，依據 figura-api `docs/ENGAGEMENT_API.md`（V27）。只修改 figura-app；未新增套件或變更購物車／結帳／訂單流程，figura-api 與 figura-web 未修改。
+
+- `lib/features/engagement.dart` 沿用 `RequestView`、`infoCard`、`WriteButton` 與既有 Bearer `request`：商品詳情登入後讀 `favorites/ids` 與 `product-alerts`，愛心 PUT／DELETE、顯示已訂閱種類、bottom sheet 勾選四種提醒後 PUT 整組（空陣列取消）。訪客顯示「登入後才能收藏」與前往登入，不儲存訪客收藏。
+- 會員頁新增「我的收藏」、「通知設定」、「通知（API unread 則未讀）」；收藏／通知列表每頁 20 筆、捲動載入、阻擋重複載入、失敗顯示重試、可下拉重讀。收藏顯示 API 價格與可售狀態、移除及進商品頁；未提供價格時顯示待確認。通知未讀標題加粗、單筆與全部標已讀，收到 ACK 後依 productId／orderId／preorderOrderId 進既有詳情；無目標只更新已讀。
+- 通知偏好三個開關每次送完整布林欄位與 `expectedVersion`；409 顯示「設定已在其他裝置變更」並重讀；顯示 Email 驗證與測試環境不實際寄信說明，註明偏好只控制 Email、站內通知保留。新功能寫入沿用 `Writes` 安全儲存與未完成操作隔離；不盲目重送未知結果，`PendingBanner` 針對新資源讀取目前伺服器資料供核對。ACK 後讀取失敗僅提供重讀。
+- 新增 `test/engagement_test.dart` **14 項 widget 測試**，沿用 `test/api_test.dart` 的 Adapter／response，涵蓋愛心方法與路徑／Bearer、訪客提示與登入導向、提醒整組替換與清空、偏好 409 重新讀取版本與未知結果保留、收藏捲動分頁／失敗重試／移除／商品導向、通知單筆與全部已讀／字重／三種目標導向／分頁／失敗重試、會員未讀數入口。
+- 驗證：repo 內 `work/flutter` 的 `dart format lib test` 通過；`flutter analyze --no-pub` **No issues found**；`flutter test --no-pub --timeout 60s` **51 通過、2 項既有 opt-in live 測試略過**；`flutter build web --release --no-pub` 成功。未連線資料庫，未執行真後端通知掃描／Email／真機／Android／iOS 驗證；Email 是否實際啟用由伺服器 `emailDeliveryActive` 決定。
+- 本次依指示只做本機 commit（訊息結尾 `Co-Authored-By: Codex`），不 push、不開 PR。開始時工作樹乾淨、HEAD `bea7f40`，已讀本機 `origin/main:docs/HANDOFF.md` 並核對 status/log/diff。`git fetch origin` 因 `.git/FETCH_HEAD` 寫入被拒失敗，`git ls-remote` 亦無法連線 GitHub 443；無法確認遠端最新狀態，未更新 main。
+
+## 2026-11-25：Commerce V2 商品規格與後端搜尋
+
+分支 `feat/commerce-v2-specs`，依據 figura-api `docs/CATALOG_SEARCH_API.md`（V25／V26）。僅修改 figura-app；未新增套件、未變更購物車／結帳／訂單寫入。
+
+- 商品詳情沿用 `RequestView`／`infoCard`，新增「商品規格」表格，只顯示有值欄位，翻譯比例／材質／類型／版本代碼，配件逐項列出；`AI_CONCEPT` 顯示「AI 虛構展示商品」，概念材質只列於「設定材質（概念）」，不混入真實材質。商品詳情與列表顯示 API 可售狀態、預購截止與到貨區間；列表價格使用 `minPriceTwd`。
+- 「現貨」分頁改用公開 `catalog/products` 後端搜尋：送出才套用 q、五種排序／有關鍵字時可選相關度、bottom sheet 多值篩選與限定／整數價格區間。`catalog/facets` 隨 q 與草稿條件重讀選項及筆數（依契約排除 availability、sort、分頁）；取消不套用，清除同時清空價格。每頁 20 筆，捲動載入後續頁、顯示總筆數與失敗重試；條件切換回第 1 頁及頂端，阻擋重複／超過末頁請求，忽略舊條件延遲回應。預購分頁保留原本流程。
+- 新增 `test/catalog_search_test.dart` 10 項 widget 測試，沿用 `Adapter`／`response`：有值規格及代碼翻譯、概念材質隔離與預購時程、舊商品缺規格、送出搜尋／相關度、多值篩選與 facets 契約、完整條件第 2 頁、連續捲動不重複載入、條件重設、延遲回應隔離、價格驗證／取消、清除價格、三種狀態標示（部分情境合併於同一測試）。
+- 本機 Windows／repo 內 `work/flutter`：`dart format lib test` 通過；`flutter analyze --no-pub` **No issues found**；`flutter test --no-pub --timeout 60s` **37 通過、2 項既有 opt-in live 測試略過**；`flutter build web --release --no-pub` 成功。網路限制使一般依賴解析停滯，使用既有快取，未變更 `pubspec.yaml`／lock。未連線資料庫、未執行真後端／真機／Android／iOS 驗證。
+- 依本次指示只做本機 commit，不 push、不開 PR。開始時工作樹乾淨，HEAD 與本機 `origin/main` 同為 `0d518b2`；已讀本機遠端追蹤版交接。`git fetch origin` 因既有 `.git/FETCH_HEAD` 寫入被拒失敗，另以 `ls-remote` 核對時 GitHub 443 無法連線，因此無法確認遠端最新狀態；未更新 main。
+
 
 ## 2026-11-18：Phase 5 配送
 

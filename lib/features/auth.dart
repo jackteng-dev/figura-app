@@ -8,6 +8,7 @@ import '../core/api.dart';
 import '../core/identity.dart';
 import '../core/providers.dart';
 import 'common.dart';
+import 'engagement.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -152,7 +153,20 @@ class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => RequestView(
+  Widget build(BuildContext context, WidgetRef ref) => Column(
+    children: [
+      OutlinedButton(
+        onPressed: () => context.push('/account/site-pages'),
+        child: const Text('政策與說明'),
+      ),
+      if (!ref.watch(apiProvider).signedIn)
+        const Expanded(child: LoginScreen())
+      else
+        Expanded(child: member(context, ref)),
+    ],
+  );
+
+  Widget member(BuildContext context, WidgetRef ref) => RequestView(
     load: () => ref.read(apiProvider).request('GET', 'me'),
     render: (data, reload) {
       final mail = data['email'] as String?, mobile = data['phone'] as String?;
@@ -166,6 +180,24 @@ class AccountScreen extends ConsumerWidget {
               Text(data['emailVerified'] == true ? 'Email 已驗證' : 'Email 尚未驗證'),
             Text('手機：${mobile ?? '未設定'}'),
           ]),
+          const SizedBox(height: 20),
+          OutlinedButton(
+            onPressed: () => context.push('/account/favorites'),
+            child: const Text('我的收藏'),
+          ),
+          OutlinedButton(
+            onPressed: () => context.push('/account/notification-preferences'),
+            child: const Text('通知設定'),
+          ),
+          const NotificationsEntry(),
+          OutlinedButton(
+            onPressed: () => context.push('/account/support-tickets'),
+            child: const Text('客服中心'),
+          ),
+          OutlinedButton(
+            onPressed: () => context.push('/account/shipments'),
+            child: const Text('我的出貨'),
+          ),
           const SizedBox(height: 20),
           OutlinedButton(
             onPressed: () => context.push('/addresses'),
